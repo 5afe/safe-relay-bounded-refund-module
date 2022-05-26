@@ -1,48 +1,55 @@
+import { AddressZero } from '@ethersproject/constants'
 import hre, { deployments } from 'hardhat'
 import { Signer, Contract } from 'ethers'
 import solc from 'solc'
 
-export const transactionQueueDeployment = async () => {
-  return await deployments.get('SafeTransactionQueueConditionalRefund')
+export async function getRelayModuleDeployment() {
+  return await deployments.get('SafeRelayBoundedRefund')
 }
 
-export const transactionQueueContract = async () => {
-  return await hre.ethers.getContractFactory('SafeEIP4337Diatomic')
+export async function getRelayModuleContractFactory() {
+  return await hre.ethers.getContractFactory('SafeRelayBoundedRefund')
 }
 
-export const getSafeAtAddress = async (address: string) => {
+export async function getRelayModuleInstance() {
+  return (await getRelayModuleContractFactory()).attach((await getRelayModuleDeployment()).address)
+}
+
+export async function getRelayerTokenContract() {
+  return await hre.ethers.getContractFactory('RelayerToken')
+}
+
+export async function getTestRelayerToken(deployer: Signer) {
+  const tokenFactory = await getRelayerTokenContract()
+  const factoryWithDeployer = tokenFactory.connect(deployer)
+  const relayerToken = await factoryWithDeployer.deploy()
+
+  return relayerToken
+}
+
+export async function getSafeAtAddress(address: string) {
   const safeMock = await hre.ethers.getContractFactory('GnosisSafeMock')
 
   return safeMock.attach(address)
 }
 
-export const getTestSafe = async (deployer: Signer, fallbackHandler?: string, moduleAddr?: string) => {
+export async function getTestSafe(deployer: Signer, moduleAddr?: string) {
   const safeFactory = await hre.ethers.getContractFactory('GnosisSafeMock')
   const factoryWithDeployer = safeFactory.connect(deployer)
-  const safe = factoryWithDeployer.deploy(fallbackHandler, moduleAddr)
+  const safe = factoryWithDeployer.deploy(moduleAddr || AddressZero)
 
   return safe
 }
 
-export const getTransactionQueueInstance = async () => {
-  return (await transactionQueueContract()).attach((await transactionQueueDeployment()).address)
-}
-
-export const getTestStorageSetter = async (signer: Signer) => {
-  const factory = await hre.ethers.getContractFactory('StorageSetter')
+export async function getTestRevertoor(signer: Signer) {
+  const factory = await hre.ethers.getContractFactory('Revertooor')
   const factoryWithDeployer = factory.connect(signer)
-  const setter = await factoryWithDeployer.deploy()
+  const revertooor = await factoryWithDeployer.deploy()
 
-  return setter
+  return revertooor
 }
 
-export const getStorageSetterAtAddress = async (address: string) => {
-  const storageSetter = await hre.ethers.getContractFactory('StorageSetter')
-
-  return storageSetter.attach(address)
-}
-
-export const compile = async (source: string) => {
+export async function compile(source: string) {
   const input = JSON.stringify({
     language: 'Solidity',
     settings: {
@@ -74,7 +81,7 @@ export const compile = async (source: string) => {
   }
 }
 
-export const deployContract = async (deployer: Signer, source: string): Promise<Contract> => {
+export async function deployContract(deployer: Signer, source: string): Promise<Contract> {
   const output = await compile(source)
   const transaction = await deployer.sendTransaction({ data: output.data, gasLimit: 6000000 })
   const receipt = await transaction.wait()

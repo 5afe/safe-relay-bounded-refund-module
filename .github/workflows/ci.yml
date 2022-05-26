@@ -11,7 +11,7 @@ jobs:
           node-version: 16.7.0
       - uses: actions/cache@v2
         with:
-          path: "**/node_modules"
+          path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
       - run: yarn --frozen-lockfile
       - run: yarn build
@@ -29,7 +29,7 @@ jobs:
           node-version: 16.7.0
       - uses: actions/cache@v2
         with:
-          path: "**/node_modules"
+          path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
       - run: yarn --frozen-lockfile
       - run: yarn lint:sol
@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        contract-name: ["GnosisSafeL2"]
+        contract-name: ['GnosisSafeL2']
     env:
       SAFE_CONTRACT_UNDER_TEST: ${{ matrix.contract-name }}
     steps:
@@ -48,7 +48,7 @@ jobs:
           node-version: 16.7.0
       - uses: actions/cache@v2
         with:
-          path: "**/node_modules"
+          path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
       - run: yarn --frozen-lockfile
       - run: yarn build
@@ -62,10 +62,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        solidity: ["0.7.6", "0.8.2"]
+        solidity: ['0.7.6', '0.8.2']
         include:
-        - solidity: "0.8.2"
-          settings: '{"viaIR":true,"optimizer":{"enabled":true,"runs":10000}}'
+          - solidity: '0.8.2'
+            settings: '{"viaIR":true,"optimizer":{"enabled":true,"runs":10000}}'
     env:
       SOLIDITY_VERSION: ${{ matrix.solidity }}
       SOLIDITY_SETTINGS: ${{ matrix.settings }}
@@ -76,6 +76,6 @@ jobs:
           node-version: 16.7.0
       - uses: actions/cache@v2
         with:
-          path: "**/node_modules"
+          path: '**/node_modules'
           key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
       - run: (yarn --frozen-lockfile && yarn build && yarn hardhat codesize --contractname GnosisSafe && yarn benchmark) || echo "Benchmark failed"

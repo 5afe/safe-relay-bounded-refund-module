@@ -6,6 +6,7 @@ import "hardhat/console.sol";
 contract GnosisSafeMock {
     address public owner;
     address public module;
+    uint256 public nonce;
 
     constructor(address _module) {
         owner = msg.sender;
@@ -38,10 +39,69 @@ contract GnosisSafeMock {
         bytes32 r;
         bytes32 s;
         (v, r, s) = signatureSplit(signature);
-        require(
-            owner == ecrecover(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", dataHash)), v, r, s),
-            "Invalid signature"
-        );
+        if (v > 30) {
+            require(
+                owner == ecrecover(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", dataHash)), v - 4, r, s),
+                "GnosisSafeMock: Invalid signature"
+            );
+        } else {
+            require(owner == ecrecover(dataHash, v, r, s), "GnosisSafeMock: Invalid signature");
+        }
+    }
+
+    function checkNSignatures(
+        bytes32 dataHash,
+        bytes memory,
+        bytes memory signature,
+        uint256
+    ) public view {
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        (v, r, s) = signatureSplit(signature);
+        if (v > 30) {
+            require(
+                owner == ecrecover(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", dataHash)), v - 4, r, s),
+                "GnosisSafeMock: Invalid signature"
+            );
+        } else {
+            require(owner == ecrecover(dataHash, v, r, s), "GnosisSafeMock: Invalid signature");
+        }
+    }
+
+    function execTransaction(
+        address to,
+        uint256 value,
+        bytes calldata data,
+        uint8 operation,
+        uint256,
+        uint256,
+        uint256,
+        address,
+        address payable,
+        bytes memory
+    ) external payable returns (bool success) {
+        exec(payable(to), value, data, operation);
+        ++nonce;
+
+        return true;
+    }
+
+    function exec(
+        address payable to,
+        uint256 value,
+        bytes calldata data,
+        uint256 operation
+    ) public {
+        bool success;
+        bytes memory response;
+        if (operation == 0) (success, response) = to.call{value: value}(data);
+        else (success, response) = to.delegatecall(data);
+        if (!success) {
+            assembly {
+                revert(add(response, 0x20), mload(response))
+            }
+        }
     }
 
     function execTransactionFromModule(
@@ -57,4 +117,6 @@ contract GnosisSafeMock {
     }
 
     receive() external payable {}
+
+    fallback() external payable {}
 }

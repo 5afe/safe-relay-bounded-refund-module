@@ -1,0 +1,3 @@
+const CONTRACT_NATIVE_TOKEN_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
+
+export { CONTRACT_NATIVE_TOKEN_ADDRESS }

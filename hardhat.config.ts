@@ -1,6 +1,7 @@
 import '@nomiclabs/hardhat-etherscan'
 import '@nomiclabs/hardhat-waffle'
 import '@nomiclabs/hardhat-ethers'
+import 'hardhat-gas-reporter'
 import 'hardhat-deploy'
 import 'solidity-coverage'
 import dotenv from 'dotenv'
@@ -47,7 +48,14 @@ const userConfig: HardhatUserConfig = {
     sources: 'contracts',
   },
   solidity: {
-    compilers: [{ version: primarySolidityVersion, settings: soliditySettings }, { version: '0.6.12' }, { version: '0.5.17' }],
+    compilers: [
+      {
+        version: primarySolidityVersion,
+        settings: soliditySettings,
+      },
+      { version: '0.6.12' },
+      { version: '0.5.17' },
+    ],
   },
   networks: {
     hardhat: {
