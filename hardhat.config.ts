@@ -51,6 +51,7 @@ const userConfig: HardhatUserConfig = {
       {
         version: primarySolidityVersion,
         settings: {
+          viaIR: true,
           optimizer: { enabled: true, runs: 200 },
         },
       },

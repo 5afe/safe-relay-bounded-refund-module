@@ -1,5 +1,5 @@
 {
-  "name": "@5afe/safe-relay-bounded-refund-module",
+  "name": "@5afe/relay-bounded-refund-module",
   "version": "0.0.1",
   "description": "Safe module for bounded refund",
   "homepage": "https://github.com/5afe/safe-relay-bounded-refund-module",
