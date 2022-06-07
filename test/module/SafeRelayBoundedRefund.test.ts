@@ -338,7 +338,7 @@ describe('SafeRelayBoundedRefund', async () => {
       await expect(executeModuleTxWithSigners(safe.address, relayModule, safeTx, refundParams, user1)).to.be.revertedWith('RefundFailure()')
     })
 
-    it('should revert if the internal transaction fails', async () => {
+    it('should revert if the relayed call fails', async () => {
       const { safe, relayModule, revertooor } = await setupTests()
 
       // Set refund boundary

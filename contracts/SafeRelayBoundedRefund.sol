@@ -28,13 +28,12 @@ error InvalidMethodSignature();
  * @title SafeRelayBoundedRefund
  * @author @mikhailxyz
  * @notice SafeRelayBoundedRefund is a module for the Gnosis Safe that relays execTransaction call and pays refund to the specified address.
- *         The built-in refund mechanism of the Gnosis Safe does not work well for refunds in multi-sig scenarios.
- *         For example, the refund gas price is a part of the transaction that has to be signed by the owners.
- *         Since the gas price is volatile on some networks, if the network gas price is higher than the refund gas price
- *         at the time of the execution, the relayer doesn't have an economic motivation to pick up the transaction.
- *         The owners must either wait for the price to go down or regather transaction signatures with a higher gas price.
- *         This contract separates the transaction and refund params (Gas Price, Gas Limit, Refund Receiver, Gas Token).
- *         The refund params have to be signed only by 1 owner. To protect from unreasonably high gas prices, safe owners can set boundaries for each param.
+ *         The built-in refund mechanism of the Gnosis Safe does not work well for refunds in multi-sig scenarios. For example, the refund
+ *         gas price is a part of the transaction that has to be signed by the owners. Since the gas price is volatile on some networks,
+ *         if the network gas price is higher than the refund gas price at the execution, the relayer doesn't have an economic motivation
+ *         to pick up the transaction. Therefore, the owners must either wait for the price to decrease or regather transaction signatures
+ *         with a higher gas price. This contract separates the transaction and refund parameters (Gas Price, Gas Limit, Refund Receiver, Gas Token).
+ *         The refund parameters have to be signed only by one owner. Safe owners can set boundaries for each param to protect from unreasonably high gas prices.
  */
 contract SafeRelayBoundedRefund is Enum {
     string public constant VERSION = "0.0.1";
@@ -56,7 +55,7 @@ contract SafeRelayBoundedRefund is Enum {
     /** @dev RefundBoundary struct represents the boundary for refunds
      * maxFeePerGas - Maximim gas price that can be refunded, includes basefee and priority fee
      * maxGasLimit - Maximum gas limit for a transaction, returned is the minimum of gas spend and transaction gas limit
-     * allowedRefundReceiversCount - Count of allowed refund receivers, we use it to track if the allowlist is enforced
+     * allowedRefundReceiversCount - Count of allowed refund receivers, we use it to track if the allowlist is enforced. Maximum 65,535 addresses
      * refundReceiverAllowlist - Mapping of allowed refund receivers, address -> bool
      */
     struct RefundBoundary {
@@ -170,50 +169,32 @@ contract SafeRelayBoundedRefund is Enum {
                 revert ExecutionFailure();
             }
 
-            uint256 payment = handleRefund(
-                safeAddress,
-                startGas,
-                transactionRefundParams.gasLimit,
-                transactionRefundParams.maxFeePerGas,
-                transactionRefundParams.gasToken,
-                transactionRefundParams.refundReceiver
-            );
+            uint256 payment = handleRefund(transactionRefundParams, startGas);
 
             emit SuccessfulExecution(keccak256(execTransactionCallData), payment);
         }
     }
 
     /**  @dev Internal method to handle the refund
-     * @param safeAddress Safe address to pay the refund from
+     * @param refundParams Refund params. See the struct definition for more info
      * @param startGas Gas available at the start of the transaction
-     * @param gasLimit Transaction gas limit specified in the refund params, will be compared to consumed gas and refund the minimum of the two
-     * @param gasPrice Gas price to use for the refund
-     * @param gasToken Refund token address, use NATIVE_TOKEN const for a native token
-     * @param refundReceiver Address of the refund receiver
      * @return payment Amount of refunded gas
      */
-    function handleRefund(
-        address payable safeAddress,
-        uint256 startGas,
-        uint120 gasLimit,
-        uint256 gasPrice,
-        address gasToken,
-        address payable refundReceiver
-    ) private returns (uint256 payment) {
+    function handleRefund(RefundParams calldata refundParams, uint256 startGas) internal returns (uint256 payment) {
         // solhint-disable-next-line avoid-tx-origin
-        address payable receiver = refundReceiver == address(0) ? payable(tx.origin) : refundReceiver;
+        address payable receiver = refundParams.refundReceiver == address(0) ? payable(tx.origin) : refundParams.refundReceiver;
         // 23k as an upper bound to cover the rest of refund logic
         uint256 gasConsumed = startGas - gasleft() + 23000;
-        payment = min(gasConsumed, gasLimit) * gasPrice;
+        payment = min(gasConsumed, refundParams.gasLimit) * refundParams.maxFeePerGas;
 
-        if (gasToken == NATIVE_TOKEN) {
-            if (!execute(safeAddress, receiver, payment, "0x")) {
+        if (refundParams.gasToken == NATIVE_TOKEN) {
+            if (!execute(refundParams.safeAddress, receiver, payment, "0x")) {
                 revert RefundFailure();
             }
         } else {
             // 0xa9059cbb - keccack("transfer(address,uint256)")
             bytes memory data = abi.encodeWithSelector(0xa9059cbb, receiver, payment);
-            if (!execute(safeAddress, gasToken, 0, data)) {
+            if (!execute(refundParams.safeAddress, refundParams.gasToken, 0, data)) {
                 revert RefundFailure();
             }
         }

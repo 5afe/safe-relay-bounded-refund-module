@@ -1,12 +1,10 @@
-# Gnosis Safe Module/Fallback handler for EIP4337 Support
+# Gnosis Safe Module with bounded refund mechanism
 
-![Scheme of how it works](/images/module_scheme.png)
+> :warning: \*\*This repo contains unaudited code that is not ready for the production use.
 
-[![npm version](https://badge.fury.io/js/%40gnosis.pm%2Fsafe-contracts.svg)](https://badge.fury.io/js/%40gnosis.pm%2Fsafe-contracts)
-[![Build Status](https://github.com/gnosis/safe-contracts/workflows/safe-contracts/badge.svg?branch=development)](https://github.com/gnosis/safe-contracts/actions)
-[![Coverage Status](https://coveralls.io/repos/github/gnosis/safe-contracts/badge.svg?branch=development)](https://coveralls.io/github/gnosis/safe-contracts)
+## Description
 
-> :warning: **This branch contains changes that are under development** To use the latest audited version make sure to use the correct commit. The tagged versions that are used by the Gnosis Safe team can be found in the [releases](https://github.com/gnosis/safe-contracts/releases).
+SafeRelayBoundedRefund is a module for the Gnosis Safe that relays execTransaction call and pays refund to the specified address. The built-in refund mechanism of the Gnosis Safe does not work well for refunds in multi-sig scenarios. For example, the refund gas price is a part of the transaction that has to be signed by the owners. Since the gas price is volatile on some networks, if the network gas price is higher than the refund gas price at the execution, the relayer doesn't have an economic motivation to pick up the transaction. Therefore, the owners must either wait for the price to decrease or regather transaction signatures with a higher gas price. This contract separates the transaction and refund parameters (Gas Price, Gas Limit, Refund Receiver, Gas Token). The refund parameters have to be signed only by one owner. Safe owners can set boundaries for each param to protect from unreasonably high gas prices.
 
 ## Usage
 
@@ -25,9 +23,7 @@ yarn test
 
 ### Deploy
 
-> :warning: **Make sure to use the correct commit when deploying the contracts.** Any change (even comments) within the contract files will result in different addresses. The tagged versions that are used by the Gnosis Safe team can be found in the [releases](https://github.com/gnosis/safe-contracts/releases).
-
-This will deploy the contracts deterministically and verify the contracts on etherscan using [Solidity 0.7.6](https://github.com/ethereum/solidity/releases/tag/v0.7.6) by default.
+This will deploy the contracts deterministically and verify the contracts on etherscan using [Solidity 0.8.14](https://github.com/ethereum/solidity/releases/tag/v0.8.14) by default.
 
 Preparation:
 
@@ -70,10 +66,6 @@ This command will upload the contract source to Etherescan
 ```bash
 yarn hardhat --network <network> etherscan-verify
 ```
-
-## Documentation
-
-- [Safe developer portal](http://docs.gnosis-safe.io)
 
 ## Security and Liability
 

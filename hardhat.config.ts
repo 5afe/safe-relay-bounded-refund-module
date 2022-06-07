@@ -37,8 +37,7 @@ import './src/tasks/local_verify'
 import './src/tasks/deploy_contracts'
 import './src/tasks/show_codesize'
 
-const primarySolidityVersion = SOLIDITY_VERSION || '0.8.9'
-const soliditySettings = !!SOLIDITY_SETTINGS ? JSON.parse(SOLIDITY_SETTINGS) : undefined
+const primarySolidityVersion = SOLIDITY_VERSION || '0.8.14'
 
 const userConfig: HardhatUserConfig = {
   paths: {
@@ -51,7 +50,9 @@ const userConfig: HardhatUserConfig = {
     compilers: [
       {
         version: primarySolidityVersion,
-        settings: soliditySettings,
+        settings: {
+          optimizer: { enabled: true, runs: 200 },
+        },
       },
       { version: '0.6.12' },
       { version: '0.5.17' },
