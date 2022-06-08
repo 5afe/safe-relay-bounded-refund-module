@@ -72,7 +72,7 @@ contract SafeRelayBoundedRefund is ReentrancyGuard {
 
     /** @dev RefundParams struct represents the transaction refund params. Signed params also include safe transaction nonce.
      * @param safe - Safe address to pay the refund from
-     * @param gasToken - Refund gas token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for a native token
+     * @param gasToken - Refund gas token, address(0) for a native token
      * @param gasLimit - Maximum gas limit for a transaction, returned is the minimum of gas spend and transaction gas limit
      * @param maxFeePerGas - Maximim gas price that can be refunded, includes basefee and priority fee
      * @param allowedRefundReceiversCount - Count of allowed refund receivers, we use it to track if the allowlist is enforced
