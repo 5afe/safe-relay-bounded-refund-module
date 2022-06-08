@@ -53,10 +53,10 @@ contract SafeRelayBoundedRefund is Enum {
     event SuccessfulExecution(bytes32 relayedDataHash, uint256 payment);
 
     /** @dev RefundBoundary struct represents the boundary for refunds
-     * maxFeePerGas - Maximim gas price that can be refunded, includes basefee and priority fee
-     * maxGasLimit - Maximum gas limit for a transaction, returned is the minimum of gas spend and transaction gas limit
-     * allowedRefundReceiversCount - Count of allowed refund receivers, we use it to track if the allowlist is enforced. Maximum 65,535 addresses
-     * refundReceiverAllowlist - Mapping of allowed refund receivers, address -> bool
+     * @param maxFeePerGas - Maximim gas price that can be refunded, includes basefee and priority fee
+     * @param maxGasLimit - Maximum gas limit for a transaction, returned is the minimum of gas spend and transaction gas limit
+     * @param allowedRefundReceiversCount - Count of allowed refund receivers, we use it to track if the allowlist is enforced. Maximum 65,535 addresses
+     * @param refundReceiverAllowlist - Mapping of allowed refund receivers, address -> bool
      */
     struct RefundBoundary {
         uint120 maxFeePerGas;
@@ -66,13 +66,13 @@ contract SafeRelayBoundedRefund is Enum {
     }
 
     /** @dev RefundParams struct represents the transaction refund params
-     * safe - Safe address to pay the refund from
-     * nonce - Safe transaction nonce
-     * gasToken - Refund gas token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for a native token
-     * gasLimit - Maximum gas limit for a transaction, returned is the minimum of gas spend and transaction gas limit
-     * maxFeePerGas - Maximim gas price that can be refunded, includes basefee and priority fee
-     * allowedRefundReceiversCount - Count of allowed refund receivers, we use it to track if the allowlist is enforced
-     * refundReceiverAllowlist - Capping of allowed refund receivers, address -> bool
+     * @param safe - Safe address to pay the refund from
+     * @param nonce - Safe transaction nonce
+     * @param gasToken - Refund gas token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for a native token
+     * @param gasLimit - Maximum gas limit for a transaction, returned is the minimum of gas spend and transaction gas limit
+     * @param maxFeePerGas - Maximim gas price that can be refunded, includes basefee and priority fee
+     * @param allowedRefundReceiversCount - Count of allowed refund receivers, we use it to track if the allowlist is enforced
+     * @param refundReceiverAllowlist - Capping of allowed refund receivers, address -> bool
      */
     struct RefundParams {
         address payable safeAddress;
