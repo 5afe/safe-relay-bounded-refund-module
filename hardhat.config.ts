@@ -51,7 +51,6 @@ const userConfig: HardhatUserConfig = {
       {
         version: primarySolidityVersion,
         settings: {
-          viaIR: true,
           optimizer: { enabled: true, runs: 200 },
         },
       },
@@ -117,10 +116,12 @@ const userConfig: HardhatUserConfig = {
     apiKey: ETHERSCAN_API_KEY,
   },
 }
+
 if (NODE_URL) {
   userConfig.networks!!.custom = {
     ...sharedNetworkConfig,
     url: NODE_URL,
   }
 }
+
 export default userConfig

@@ -13,16 +13,16 @@ error ExecutionFailure();
 error InvalidRefundReceiver();
 
 /// @notice Thrown when refund conditions for gas limit or gas price were not met
-error RefundGasBoundariesNotMet();
+error RefundGasBoundariesNotMet(uint120 gasLimit, uint120 gasPrice, uint120 maxGasLimit, uint120 maxGasPrice);
 
 /// @notice Thrown when failed to pay the refund
 error RefundFailure();
 
 /// @notice Thrown when the gas supplied to the transaction is less than signed gas limit
-error NotEnoughGas();
+error NotEnoughGas(uint120 suppliedGas, uint120 gasLimit);
 
 /// @notice Thrown when trying to relay method call other than `execTransaction`
-error InvalidMethodSignature();
+error InvalidMethodSignature(bytes4 relayedMethod, bytes4 expectedMethod);
 
 /**
  * @title SafeRelayBoundedRefund
@@ -123,19 +123,21 @@ contract SafeRelayBoundedRefund is Enum {
         //            ~= 21k + calldata.length * [1/3 * 16 + 2/3 * 4]
         uint256 startGas = gasleft() + 21000 + msg.data.length * 8;
         if (startGas < transactionRefundParams.gasLimit) {
-            revert NotEnoughGas();
+            revert NotEnoughGas(uint120(startGas), transactionRefundParams.gasLimit);
         }
 
         // Only allow relaying execTransaction method calls
         if (bytes4(execTransactionCallData) != EXEC_TRANSACTION_SIGNATURE) {
-            revert InvalidMethodSignature();
+            revert InvalidMethodSignature(bytes4(execTransactionCallData), EXEC_TRANSACTION_SIGNATURE);
         }
 
         /*                      REFUND PARAMS SIGNATURE CHECK                      */
         address payable safeAddress = transactionRefundParams.safeAddress;
+        address gasToken = transactionRefundParams.gasToken;
+
         {
             bytes memory encodedRefundParamsData = encodeRefundParamsData(
-                safeAddress,
+                transactionRefundParams.safeAddress,
                 GnosisSafe(safeAddress).nonce(),
                 transactionRefundParams.gasToken,
                 transactionRefundParams.gasLimit,
@@ -147,9 +149,9 @@ contract SafeRelayBoundedRefund is Enum {
         }
 
         /*                      BOUNDARY CHECKS                      */
-        RefundBoundary storage safeRefundBoundary = safeRefundBoundaries[safeAddress][transactionRefundParams.gasToken];
+        RefundBoundary storage safeRefundBoundary = safeRefundBoundaries[safeAddress][gasToken];
         /*                      REFUND RECEIVER CHECK                      */
-        if (!isAllowedRefundReceiver(safeAddress, transactionRefundParams.gasToken, transactionRefundParams.refundReceiver)) {
+        if (!isAllowedRefundReceiver(safeAddress, gasToken, transactionRefundParams.refundReceiver)) {
             revert InvalidRefundReceiver();
         }
 
@@ -158,7 +160,12 @@ contract SafeRelayBoundedRefund is Enum {
             transactionRefundParams.maxFeePerGas > safeRefundBoundary.maxFeePerGas ||
             transactionRefundParams.gasLimit > safeRefundBoundary.maxGasLimit
         ) {
-            revert RefundGasBoundariesNotMet();
+            revert RefundGasBoundariesNotMet(
+                transactionRefundParams.gasLimit,
+                transactionRefundParams.maxFeePerGas,
+                safeRefundBoundary.maxGasLimit,
+                safeRefundBoundary.maxFeePerGas
+            );
         }
 
         {

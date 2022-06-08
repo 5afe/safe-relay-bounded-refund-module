@@ -142,7 +142,10 @@ describe('SafeRelayBoundedRefund', async () => {
         signature: (await signRefundParamsTypedData(user1, relayModule, refundParams)).data,
       }
 
-      await expect(relayModule.relayAndRefund(encodedCall, signedRefundParams)).to.be.revertedWith('InvalidMethodSignature')
+      const EXEC_TRANSACTION_SIG = '0x6a761202'
+      await expect(relayModule.relayAndRefund(encodedCall, signedRefundParams)).to.be.revertedWith(
+        `InvalidMethodSignature("${encodedCall.slice(0, 10)}", "${EXEC_TRANSACTION_SIG}")`,
+      )
     })
 
     it('should revert if the refund params nonce does not match the safe nonce', async () => {
@@ -407,6 +410,7 @@ describe('SafeRelayBoundedRefund', async () => {
     it('should respect maxFeePerGas refund boundary', async () => {
       const { safe, relayModule } = await setupTests()
       const MAX_GASPRICE_REFUND = BigNumber.from('10000000000')
+      const MAX_GAS_LIMIT = 10000000
 
       // Set refund boundary
       await execSafeTransaction(
@@ -414,7 +418,7 @@ describe('SafeRelayBoundedRefund', async () => {
         buildContractCall(
           relayModule,
           'setRefundBoundary',
-          [CONTRACT_NATIVE_TOKEN_ADDRESS, MAX_GASPRICE_REFUND, 10000000, [user2.address]],
+          [CONTRACT_NATIVE_TOKEN_ADDRESS, MAX_GASPRICE_REFUND, MAX_GAS_LIMIT, [user2.address]],
           {
             nonce: 0,
             operation: 0,
@@ -424,16 +428,24 @@ describe('SafeRelayBoundedRefund', async () => {
       const provider = hre.ethers.provider
       const transferAmountWei = parseEther('1.5')
       const OUT_OF_BOUND_GASPRICE = MAX_GASPRICE_REFUND.add(1)
-      const maxRefund = OUT_OF_BOUND_GASPRICE.mul('120000')
+      const TX_GAS_LIMIT = 120000
+      const maxRefund = OUT_OF_BOUND_GASPRICE.mul(TX_GAS_LIMIT)
 
       await user1.sendTransaction({ to: safe.address, value: transferAmountWei.add(maxRefund) })
       expect(await provider.getBalance(safe.address)).to.eq(transferAmountWei.add(maxRefund))
 
       const safeTransaction = buildSafeTransaction({ to: user1.address, value: transferAmountWei, nonce: '1' })
-      const refundParams = buildRefundParams(safe.address, '1', CONTRACT_NATIVE_TOKEN_ADDRESS, 120000, 100000000000, user2.address)
+      const refundParams = buildRefundParams(
+        safe.address,
+        '1',
+        CONTRACT_NATIVE_TOKEN_ADDRESS,
+        TX_GAS_LIMIT,
+        OUT_OF_BOUND_GASPRICE,
+        user2.address,
+      )
 
       await expect(executeModuleTxWithSigners(safe.address, relayModule, safeTransaction, refundParams, user1)).to.be.revertedWith(
-        'RefundGasBoundariesNotMet()',
+        `RefundGasBoundariesNotMet(${TX_GAS_LIMIT}, ${OUT_OF_BOUND_GASPRICE}, ${MAX_GAS_LIMIT}, ${MAX_GASPRICE_REFUND})`,
       )
     })
 
@@ -444,10 +456,11 @@ describe('SafeRelayBoundedRefund', async () => {
       const MAX_GAS_LIMIT = BigNumber.from('1000000')
       const transferAmountWei = parseEther('1.5')
       const maxGasRefund = BigNumber.from('10000000000').mul('120000')
+      const GAS_PRICE = 10000000000
 
       await execSafeTransaction(
         safe,
-        buildContractCall(relayModule, 'setRefundBoundary', [CONTRACT_NATIVE_TOKEN_ADDRESS, 10000000000, MAX_GAS_LIMIT, [user2.address]], {
+        buildContractCall(relayModule, 'setRefundBoundary', [CONTRACT_NATIVE_TOKEN_ADDRESS, GAS_PRICE, MAX_GAS_LIMIT, [user2.address]], {
           nonce: 0,
           operation: 0,
         }),
@@ -462,12 +475,12 @@ describe('SafeRelayBoundedRefund', async () => {
         '1',
         CONTRACT_NATIVE_TOKEN_ADDRESS,
         MAX_GAS_LIMIT.add(1),
-        10000000000,
+        GAS_PRICE,
         user2.address,
       )
 
       await expect(executeModuleTxWithSigners(safe.address, relayModule, safeTransaction, refundParams, user1)).to.be.revertedWith(
-        'RefundGasBoundariesNotMet()',
+        `RefundGasBoundariesNotMet(${MAX_GAS_LIMIT.add(1)}, ${GAS_PRICE}, ${MAX_GAS_LIMIT}, ${GAS_PRICE})`,
       )
     })
   })
