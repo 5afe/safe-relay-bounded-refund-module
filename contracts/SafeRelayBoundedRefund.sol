@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity >=0.8.0 <0.9.0;
 
-import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
 import "@rari-capital/solmate/src/utils/ReentrancyGuard.sol";
 import "hardhat/console.sol";
+import "./interfaces/Safe.sol";
 
 /// ERRORS ///
 
@@ -36,7 +36,7 @@ error InvalidMethodSignature(bytes4 relayedMethod, bytes4 expectedMethod);
  *         with a higher gas price. This contract separates the transaction and refund parameters (Gas Price, Gas Limit, Refund Receiver, Gas Token).
  *         The refund parameters have to be signed only by one owner. Safe owners can set boundaries for each param to protect from unreasonably high gas prices.
  */
-contract SafeRelayBoundedRefund is Enum, ReentrancyGuard {
+contract SafeRelayBoundedRefund is ReentrancyGuard {
     string public constant VERSION = "0.0.1";
 
     bytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
@@ -52,6 +52,7 @@ contract SafeRelayBoundedRefund is Enum, ReentrancyGuard {
     address private constant NATIVE_TOKEN = address(0);
 
     event SuccessfulExecution(bytes32 relayedDataHash, uint256 payment);
+    event BoundarySet(address safe, address token, uint120 maxGasLimit, uint120 maxFeePerGas, address[] allowlist);
 
     /** @dev RefundBoundary struct represents the boundary for refunds
      * @param maxFeePerGas - Maximim gas price that can be refunded, includes basefee and priority fee
@@ -111,6 +112,8 @@ contract SafeRelayBoundedRefund is Enum, ReentrancyGuard {
             for (uint16 i = 0; i < safeRefundBoundary.allowedRefundReceiversCount; i++)
                 safeRefundBoundary.refundReceiverAllowlist[refundReceiverAllowlist[i]] = true;
         }
+
+        emit BoundarySet(msg.sender, tokenAddress, maxGasLimit, maxFeePerGas, refundReceiverAllowlist);
     }
 
     /** @notice Relays an execTransaction call to the safe and pays a refund. The call has to be successful
@@ -143,14 +146,14 @@ contract SafeRelayBoundedRefund is Enum, ReentrancyGuard {
 
         bytes memory encodedRefundParamsData = encodeRefundParamsData(
             safeAddress,
-            GnosisSafe(safeAddress).nonce(),
+            Safe(safeAddress).nonce(),
             gasToken,
             transactionRefundParams.gasLimit,
             transactionRefundParams.maxFeePerGas,
             transactionRefundParams.refundReceiver
         );
         bytes32 refundParamsHash = keccak256(encodedRefundParamsData);
-        GnosisSafe(safeAddress).checkNSignatures(refundParamsHash, encodedRefundParamsData, transactionRefundParams.signature, 1);
+        Safe(safeAddress).checkNSignatures(refundParamsHash, encodedRefundParamsData, transactionRefundParams.signature, 1);
 
         /*                      BOUNDARY CHECKS                      */
         RefundBoundary storage safeRefundBoundary = safeRefundBoundaries[safeAddress][gasToken];
@@ -266,7 +269,7 @@ contract SafeRelayBoundedRefund is Enum, ReentrancyGuard {
         uint256 value,
         bytes memory data
     ) internal returns (bool success) {
-        success = GnosisSafe(safeAddress).execTransactionFromModule(to, value, data, Operation.Call);
+        success = Safe(safeAddress).execTransactionFromModule(to, value, data, 0);
     }
 
     /** @dev A function to check if a given address is a valid refund receiver for a given Safe and token
