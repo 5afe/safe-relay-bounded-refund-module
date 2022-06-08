@@ -50,6 +50,7 @@ contract SafeRelayBoundedRefund is ReentrancyGuard {
     bytes4 private constant EXEC_TRANSACTION_SIGNATURE = 0x6a761202;
 
     address private constant NATIVE_TOKEN = address(0);
+    uint16 private constant COVERED_REFUND_PAYMENT_GAS = 23000;
 
     event SuccessfulExecution(bytes32 relayedDataHash, uint256 payment);
     event BoundarySet(address safe, address token, uint120 maxGasLimit, uint120 maxFeePerGas, address[] allowlist);
@@ -61,9 +62,11 @@ contract SafeRelayBoundedRefund is ReentrancyGuard {
      * @param refundReceiverAllowlist - Mapping of allowed refund receivers, address -> bool
      */
     struct RefundBoundary {
-        uint120 maxFeePerGas;
-        uint120 maxGasLimit;
-        uint16 allowedRefundReceiversCount;
+        // First storage slot (32 bytes)
+        uint120 maxFeePerGas; // 120 bits - 15 bytes. Max 1.32e18 tokens, including decimals
+        uint120 maxGasLimit; // 120 bits - 15 bytes. Max 1.32e36 gas
+        uint16 allowedRefundReceiversCount; // 16 bits - 2 bytes. Max 65,535 receivers
+        // End of first storage slot
         mapping(address => bool) refundReceiverAllowlist;
     }
 
@@ -195,8 +198,8 @@ contract SafeRelayBoundedRefund is ReentrancyGuard {
     function handleRefund(RefundParams calldata refundParams, uint256 startGas) internal returns (uint256 payment) {
         // solhint-disable-next-line avoid-tx-origin
         address payable receiver = refundParams.refundReceiver == address(0) ? payable(tx.origin) : refundParams.refundReceiver;
-        // 23k as an upper bound to cover the rest of refund logic
-        uint256 gasConsumed = startGas - gasleft() + 23000;
+
+        uint256 gasConsumed = startGas - gasleft() + COVERED_REFUND_PAYMENT_GAS;
         payment = min(gasConsumed, refundParams.gasLimit) * refundParams.maxFeePerGas;
 
         if (refundParams.gasToken == NATIVE_TOKEN) {
