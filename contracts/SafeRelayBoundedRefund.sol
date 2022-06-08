@@ -2,6 +2,7 @@
 pragma solidity >=0.8.0 <0.9.0;
 
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
+import "@rari-capital/solmate/src/utils/ReentrancyGuard.sol";
 import "hardhat/console.sol";
 
 /// ERRORS ///
@@ -35,7 +36,7 @@ error InvalidMethodSignature(bytes4 relayedMethod, bytes4 expectedMethod);
  *         with a higher gas price. This contract separates the transaction and refund parameters (Gas Price, Gas Limit, Refund Receiver, Gas Token).
  *         The refund parameters have to be signed only by one owner. Safe owners can set boundaries for each param to protect from unreasonably high gas prices.
  */
-contract SafeRelayBoundedRefund is Enum {
+contract SafeRelayBoundedRefund is Enum, ReentrancyGuard {
     string public constant VERSION = "0.0.1";
 
     bytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
@@ -48,7 +49,7 @@ contract SafeRelayBoundedRefund is Enum {
     // keccak256(execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes))
     bytes4 private constant EXEC_TRANSACTION_SIGNATURE = 0x6a761202;
 
-    address private constant NATIVE_TOKEN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address private constant NATIVE_TOKEN = address(0);
 
     event SuccessfulExecution(bytes32 relayedDataHash, uint256 payment);
 
@@ -65,9 +66,8 @@ contract SafeRelayBoundedRefund is Enum {
         mapping(address => bool) refundReceiverAllowlist;
     }
 
-    /** @dev RefundParams struct represents the transaction refund params
+    /** @dev RefundParams struct represents the transaction refund params. Signed params also include safe transaction nonce.
      * @param safe - Safe address to pay the refund from
-     * @param nonce - Safe transaction nonce
      * @param gasToken - Refund gas token, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for a native token
      * @param gasLimit - Maximum gas limit for a transaction, returned is the minimum of gas spend and transaction gas limit
      * @param maxFeePerGas - Maximim gas price that can be refunded, includes basefee and priority fee
@@ -76,7 +76,6 @@ contract SafeRelayBoundedRefund is Enum {
      */
     struct RefundParams {
         address payable safeAddress;
-        uint256 nonce;
         address gasToken;
         uint120 gasLimit;
         uint120 maxFeePerGas;
@@ -118,7 +117,14 @@ contract SafeRelayBoundedRefund is Enum {
      * @param execTransactionCallData Call data of the execTransaction call to be relayed
      * @param transactionRefundParams Refund params. See the struct definition for more info
      */
-    function relayAndRefund(bytes calldata execTransactionCallData, RefundParams calldata transactionRefundParams) external payable {
+    function relayAndRefund(bytes calldata execTransactionCallData, RefundParams calldata transactionRefundParams)
+        external
+        payable
+        nonReentrant // Prevents reentrancy from the contract signature check
+    {
+        // The startGas variable below is based on @juniset's assumption
+        // used in Argent Wallet that the calldata approximately consists of 1/3 non-zero bytes and 2/3 zero bytes
+        // https://github.com/argentlabs/argent-contracts/blob/c80d3cb4e98af9a9e4eae9dc7fa01ea677bd6e3a/contracts/modules/RelayerManager.sol#L94-L96
         // initial gas = 21k + non_zero_bytes * 16 + zero_bytes * 4
         //            ~= 21k + calldata.length * [1/3 * 16 + 2/3 * 4]
         uint256 startGas = gasleft() + 21000 + msg.data.length * 8;
@@ -135,18 +141,16 @@ contract SafeRelayBoundedRefund is Enum {
         address payable safeAddress = transactionRefundParams.safeAddress;
         address gasToken = transactionRefundParams.gasToken;
 
-        {
-            bytes memory encodedRefundParamsData = encodeRefundParamsData(
-                transactionRefundParams.safeAddress,
-                GnosisSafe(safeAddress).nonce(),
-                transactionRefundParams.gasToken,
-                transactionRefundParams.gasLimit,
-                transactionRefundParams.maxFeePerGas,
-                transactionRefundParams.refundReceiver
-            );
-            bytes32 refundParamsHash = keccak256(encodedRefundParamsData);
-            GnosisSafe(safeAddress).checkNSignatures(refundParamsHash, encodedRefundParamsData, transactionRefundParams.signature, 1);
-        }
+        bytes memory encodedRefundParamsData = encodeRefundParamsData(
+            safeAddress,
+            GnosisSafe(safeAddress).nonce(),
+            gasToken,
+            transactionRefundParams.gasLimit,
+            transactionRefundParams.maxFeePerGas,
+            transactionRefundParams.refundReceiver
+        );
+        bytes32 refundParamsHash = keccak256(encodedRefundParamsData);
+        GnosisSafe(safeAddress).checkNSignatures(refundParamsHash, encodedRefundParamsData, transactionRefundParams.signature, 1);
 
         /*                      BOUNDARY CHECKS                      */
         RefundBoundary storage safeRefundBoundary = safeRefundBoundaries[safeAddress][gasToken];
@@ -168,18 +172,16 @@ contract SafeRelayBoundedRefund is Enum {
             );
         }
 
-        {
-            // We need to guarantee that the safe nonce gets increased
-            // So the refund signature cannot be reused for another call
-            (bool success, ) = safeAddress.call(execTransactionCallData);
-            if (!success) {
-                revert ExecutionFailure();
-            }
-
-            uint256 payment = handleRefund(transactionRefundParams, startGas);
-
-            emit SuccessfulExecution(keccak256(execTransactionCallData), payment);
+        // We need to guarantee that the safe nonce gets increased
+        // So the refund signature cannot be reused for another call
+        (bool success, ) = safeAddress.call(execTransactionCallData);
+        if (!success) {
+            revert ExecutionFailure();
         }
+
+        uint256 payment = handleRefund(transactionRefundParams, startGas);
+
+        emit SuccessfulExecution(keccak256(execTransactionCallData), payment);
     }
 
     /**  @dev Internal method to handle the refund

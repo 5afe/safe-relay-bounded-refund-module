@@ -1,3 +1,3 @@
-const CONTRACT_NATIVE_TOKEN_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
+const CONTRACT_NATIVE_TOKEN_ADDRESS = `0x${'0'.repeat(40)}`
 
 export { CONTRACT_NATIVE_TOKEN_ADDRESS }
