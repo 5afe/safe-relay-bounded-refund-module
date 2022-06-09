@@ -40,7 +40,7 @@ describe('RelayModuleFixedReward', async () => {
 
       await logGas(
         'calling setBoundary',
-        relayModule.setRefundBoundary(tokenAddress, 10000000000, 10000000, [user1.address, user2.address]),
+        relayModule.setupRefundBoundary(tokenAddress, 10000000000, 10000000, [user1.address, user2.address]),
       )
     })
 
@@ -61,7 +61,7 @@ describe('RelayModuleFixedReward', async () => {
       // Set refund boundary
       await execSafeTransaction(
         safe,
-        buildContractCall(relayModule, 'setRefundBoundary', [CONTRACT_NATIVE_TOKEN_ADDRESS, 10000000000, 10000000, [user1.address]], {
+        buildContractCall(relayModule, 'setupRefundBoundary', [CONTRACT_NATIVE_TOKEN_ADDRESS, 10000000000, 10000000, [user1.address]], {
           nonce: 0,
           operation: 0,
         }),
