@@ -12,6 +12,9 @@ error DuplicateRefundReceiver();
 /// @notice Thrown when the refund receiver was not allowlisted
 error InvalidRefundReceiver();
 
+/// @notice Thrown when the number does not fit in the range of uint16
+error Uint16Overflow();
+
 /**
  * @title BoundaryManager
  * @author @mikhailxyz
@@ -21,10 +24,10 @@ contract BoundaryManager {
     // safeAddress -> tokenAddress -> RefundBoundary
     mapping(address => mapping(address => RefundBoundary)) public safeRefundBoundaries;
 
-    event BoundarySet(address safe, address token, uint120 maxGasLimit, uint120 maxFeePerGas, address[] allowlist);
-    event GasBoundaryUpdated(address safe, address token, uint120 maxGasLimit, uint120 maxFeePerGas);
-    event AddedRefundReceivers(address safe, address token, address[] receivers);
-    event RemovedRefundReceivers(address safe, address token, address[] receivers);
+    event BoundarySet(address indexed safe, address indexed token, uint120 maxGasLimit, uint120 maxFeePerGas, address[] allowlist);
+    event GasBoundaryUpdated(address indexed safe, address indexed token, uint120 maxGasLimit, uint120 maxFeePerGas);
+    event AddedRefundReceivers(address indexed safe, address indexed token, address[] receivers);
+    event RemovedRefundReceivers(address indexed safe, address indexed token, address[] receivers);
 
     /** @dev RefundBoundary struct represents the boundary for refunds
      * @param maxFeePerGas - Maximim gas price that can be refunded, includes basefee and priority fee
@@ -65,16 +68,16 @@ contract BoundaryManager {
         safeRefundBoundary.maxGasLimit = maxGasLimit;
         safeRefundBoundary.allowedRefundReceiversCount = uint16(refundReceiverAllowlist.length);
 
-        address prevOwner = address(0);
+        address prevReceiver = address(0);
         unchecked {
             for (uint16 i = 0; i < safeRefundBoundary.allowedRefundReceiversCount; i++) {
                 // We require the list to be sorted to prevent duplicate addresses
-                if (refundReceiverAllowlist[i] < prevOwner) {
+                if (refundReceiverAllowlist[i] <= prevReceiver) {
                     revert DuplicateRefundReceiver();
                 }
 
                 safeRefundBoundary.refundReceiverAllowlist[refundReceiverAllowlist[i]] = true;
-                prevOwner = refundReceiverAllowlist[i];
+                prevReceiver = refundReceiverAllowlist[i];
             }
         }
 
@@ -100,7 +103,9 @@ contract BoundaryManager {
 
     function addRefundReceivers(address tokenAddress, address[] calldata refundReceivers) public {
         RefundBoundary storage safeRefundBoundary = safeRefundBoundaries[msg.sender][tokenAddress];
-        safeRefundBoundary.allowedRefundReceiversCount = safeRefundBoundary.allowedRefundReceiversCount + uint16(refundReceivers.length);
+        safeRefundBoundary.allowedRefundReceiversCount =
+            safeRefundBoundary.allowedRefundReceiversCount +
+            safeCastToUint16(refundReceivers.length);
 
         for (uint16 i = 0; i < refundReceivers.length; i++) {
             if (safeRefundBoundary.refundReceiverAllowlist[refundReceivers[i]]) {
@@ -115,7 +120,9 @@ contract BoundaryManager {
 
     function removeRefundReceivers(address tokenAddress, address[] calldata refundReceivers) public {
         RefundBoundary storage safeRefundBoundary = safeRefundBoundaries[msg.sender][tokenAddress];
-        safeRefundBoundary.allowedRefundReceiversCount = safeRefundBoundary.allowedRefundReceiversCount - uint16(refundReceivers.length);
+        safeRefundBoundary.allowedRefundReceiversCount =
+            safeRefundBoundary.allowedRefundReceiversCount -
+            safeCastToUint16(refundReceivers.length);
 
         for (uint16 i = 0; i < refundReceivers.length; i++) {
             if (!safeRefundBoundary.refundReceiverAllowlist[refundReceivers[i]]) {
@@ -133,5 +140,14 @@ contract BoundaryManager {
             safeRefundBoundaries[safe][tokenAddress].maxFeePerGas != 0 ||
             safeRefundBoundaries[safe][tokenAddress].maxGasLimit != 0 ||
             safeRefundBoundaries[safe][tokenAddress].allowedRefundReceiversCount != 0;
+    }
+
+    function safeCastToUint16(uint256 x) internal pure returns (uint16 y) {
+        // Shift 1 bit to the left 16 times to get a maximum uint16 value (2^16)
+        if (x > 1 << 16) {
+            revert Uint16Overflow();
+        }
+
+        y = uint16(x);
     }
 }
