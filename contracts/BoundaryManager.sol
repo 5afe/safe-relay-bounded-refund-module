@@ -68,6 +68,11 @@ contract BoundaryManager {
         address prevOwner = address(0);
         unchecked {
             for (uint16 i = 0; i < safeRefundBoundary.allowedRefundReceiversCount; i++) {
+                
+                // COMMENT: will this handle the case when there are 2 duplicate addresses?
+                // refundReciever[i] = 1 and prevOwner = 1 should pass this <if statement>'s conditional
+                // i.e. it will not revert if two addresses are the same.
+                
                 // We require the list to be sorted to prevent duplicate addresses
                 if (refundReceiverAllowlist[i] < prevOwner) {
                     revert DuplicateRefundReceiver();
@@ -100,8 +105,14 @@ contract BoundaryManager {
 
     function addRefundReceivers(address tokenAddress, address[] calldata refundReceivers) public {
         RefundBoundary storage safeRefundBoundary = safeRefundBoundaries[msg.sender][tokenAddress];
+        
+        // COMMENT: can this overflow the uint16 type and thus start the count from 0?
         safeRefundBoundary.allowedRefundReceiversCount = safeRefundBoundary.allowedRefundReceiversCount + uint16(refundReceivers.length);
 
+        // COMMENT: it would be good to add comment / intention of what's happening here. 
+        // Do I understand right that the code checks if the flag is already set to true (in which case it reverts). 
+        // Should it revert? Why not ignore?
+      
         for (uint16 i = 0; i < refundReceivers.length; i++) {
             if (safeRefundBoundary.refundReceiverAllowlist[refundReceivers[i]]) {
                 revert InvalidRefundReceiver();
@@ -115,9 +126,12 @@ contract BoundaryManager {
 
     function removeRefundReceivers(address tokenAddress, address[] calldata refundReceivers) public {
         RefundBoundary storage safeRefundBoundary = safeRefundBoundaries[msg.sender][tokenAddress];
+
+        // COMMENT: Can it overflow? i.e. if the left side is less than the right side in the subtraction?
         safeRefundBoundary.allowedRefundReceiversCount = safeRefundBoundary.allowedRefundReceiversCount - uint16(refundReceivers.length);
 
         for (uint16 i = 0; i < refundReceivers.length; i++) {
+            // COMMENT: again, here, what is the reason for reverting here instead of ignoring?
             if (!safeRefundBoundary.refundReceiverAllowlist[refundReceivers[i]]) {
                 revert InvalidRefundReceiver();
             }

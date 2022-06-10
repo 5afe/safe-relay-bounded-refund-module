@@ -13,6 +13,9 @@ error ExecutionFailure();
 /// @notice Thrown when the refund receiver was not allowlisted
 error RefundReceiverNotAllowed();
 
+// COMMENT: why is the gasLimit, maxGasLimit have uint120 type? I think usually they are uint64 or uint256 values
+// Also, why is gasPrice and maxGasPrice are uint120? Usually they are uint256
+
 /// @notice Thrown when refund conditions for gas limit or gas price were not met
 error RefundGasBoundariesNotMet(uint120 gasLimit, uint120 gasPrice, uint120 maxGasLimit, uint120 maxGasPrice);
 
@@ -152,6 +155,8 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
      * @return payment Amount of refunded gas
      */
     function handleRefund(RefundParams calldata refundParams, uint256 startGas) internal returns (uint256 payment) {
+        // COMMENT: maybe good to extract the address(0) to a named constant. 
+
         // solhint-disable-next-line avoid-tx-origin
         address payable receiver = refundParams.refundReceiver == address(0) ? payable(tx.origin) : refundParams.refundReceiver;
 
@@ -159,6 +164,8 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
         payment = min(gasConsumed, refundParams.gasLimit) * refundParams.maxFeePerGas;
 
         if (refundParams.gasToken == NATIVE_TOKEN) {
+            // COMMENT: for defensive programming, I would extract the output of the `execute` into a separate variable and 
+            // check the variable in the if statement.
             if (!execute(refundParams.safeAddress, receiver, payment, "0x")) {
                 revert RefundFailure();
             }
@@ -166,6 +173,9 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
             // 0xa9059cbb - keccack("transfer(address,uint256)")
             bytes memory data = abi.encodeWithSelector(0xa9059cbb, receiver, payment);
             if (!execute(refundParams.safeAddress, refundParams.gasToken, 0, data)) {
+                // COMMENT: I would add some text or a different error type to distinguish between
+                // native refund failure and token refund failure.
+                // Also, if there's a way to get more information why token transfer failed, that would help
                 revert RefundFailure();
             }
         }
@@ -242,6 +252,15 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
         address gasToken,
         address refundReceiver
     ) public view returns (bool) {
+        // COMMENT: the comment below just tells what the code is already telling, it doesn't explain
+        // _why_ the code is like this. Can you please re-phrase it in plain language so that
+        // the comment tells about intent?
+        //
+        // Something like:
+        // Receiver is allowed to be refunded in the 'gasToken' currency from the safe address
+        // iff the maximum gas fee was set before, and the receiver address is in the list
+        // of allowed receivers for that safe address and gas token combination.
+
         // First we check if the boundary is set by checking that maxFeePerGas is not 0
         // Then, if `allowedRefundReceiversCount` is not 0, we check if the address is in the allowlist
         return
