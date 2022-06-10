@@ -231,25 +231,6 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
         success = Safe(safeAddress).execTransactionFromModule(to, value, data, 0);
     }
 
-    /** @dev A function to check if a given address is a valid refund receiver for a given Safe and token
-     * @param safeAddress Safe address
-     * @param gasToken Gas Token address
-     * @param refundReceiver Refund receiver address
-     * @return Boolean indicating if the address is a valid refund receiver
-     */
-    function isAllowedRefundReceiver(
-        address safeAddress,
-        address gasToken,
-        address refundReceiver
-    ) public view returns (bool) {
-        // First we check if the boundary is set by checking that maxFeePerGas is not 0
-        // Then, if `allowedRefundReceiversCount` is not 0, we check if the address is in the allowlist
-        return
-            safeRefundBoundaries[safeAddress][gasToken].maxFeePerGas != 0 &&
-            (safeRefundBoundaries[safeAddress][gasToken].allowedRefundReceiversCount == 0 ||
-                safeRefundBoundaries[safeAddress][gasToken].refundReceiverAllowlist[refundReceiver]);
-    }
-
     /** @dev Returns the smallest of two numbers.
      * @param a First number
      * @param b Second number

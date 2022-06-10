@@ -13,6 +13,7 @@ import {
 
 import { logGas } from '../../src/utils/gas'
 import { CONTRACT_NATIVE_TOKEN_ADDRESS } from '../../src/utils/constants'
+import { sortAddresses } from '../utils/addresses'
 
 describe('RelayModuleFixedReward', async () => {
   const [user1, user2] = waffle.provider.getWallets()
@@ -40,7 +41,7 @@ describe('RelayModuleFixedReward', async () => {
 
       await logGas(
         'calling setBoundary',
-        relayModule.setupRefundBoundary(tokenAddress, 10000000000, 10000000, [user1.address, user2.address]),
+        relayModule.setupRefundBoundary(tokenAddress, 10000000000, 10000000, sortAddresses([user1.address, user2.address])),
       )
     })
 
@@ -48,7 +49,7 @@ describe('RelayModuleFixedReward', async () => {
       const { safe } = await setupTests()
 
       await logGas(
-        'execute transaction directly',
+        'executing a transaction directly',
         safe.execTransaction(user2.address, 0, '0xbaddad42', 0, 0, 0, 0, AddressZero, AddressZero, '0x'),
       )
     })
@@ -72,7 +73,7 @@ describe('RelayModuleFixedReward', async () => {
       const refundParams = buildRefundParams(safe.address, '1', CONTRACT_NATIVE_TOKEN_ADDRESS, 120000, 10000000000, user1.address)
 
       await logGas(
-        'execute transaction via relay module',
+        'executing a transaction via relay module',
         executeModuleTxWithSigners(safe.address, relayModule, safeTransaction, refundParams, user1),
       )
     })

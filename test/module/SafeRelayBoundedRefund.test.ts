@@ -21,7 +21,7 @@ import { chainId } from '../utils/encoding'
 import { CONTRACT_NATIVE_TOKEN_ADDRESS } from '../../src/utils/constants'
 
 describe('SafeRelayBoundedRefund', async () => {
-  const [user1, user2, user3] = waffle.provider.getWallets()
+  const [user1, user2] = waffle.provider.getWallets()
 
   const setupTests = deployments.createFixture(async ({ deployments }) => {
     await deployments.fixture()
@@ -59,83 +59,6 @@ describe('SafeRelayBoundedRefund', async () => {
           await chainId(),
         ),
       )
-    })
-  })
-
-  describe('setupRefundBoundary', () => {
-    it('sets refund conditions for msg.sender and token address', async () => {
-      const { relayModule } = await setupTests()
-      const tokenAddress = `0x${'42'.repeat(20)}`
-
-      // Set refund boundary
-      await relayModule.setupRefundBoundary(tokenAddress, 10000000000, 10000000, [user2.address, user3.address])
-
-      const refundConditionToken = await relayModule.safeRefundBoundaries(user1.address, tokenAddress)
-      const refundConditionETH = await relayModule.safeRefundBoundaries(user1.address, CONTRACT_NATIVE_TOKEN_ADDRESS)
-
-      expect(refundConditionETH.maxFeePerGas).to.eq(0)
-      expect(refundConditionETH.maxGasLimit).to.eq(0)
-      expect(refundConditionETH.allowedRefundReceiversCount).to.eq(0)
-      expect(await relayModule.isAllowedRefundReceiver(user1.address, CONTRACT_NATIVE_TOKEN_ADDRESS, user2.address)).to.eq(false)
-      expect(await relayModule.isAllowedRefundReceiver(user1.address, CONTRACT_NATIVE_TOKEN_ADDRESS, user3.address)).to.eq(false)
-
-      expect(refundConditionToken.maxFeePerGas).to.equal('10000000000')
-      expect(refundConditionToken.maxGasLimit).to.equal('10000000')
-      expect(refundConditionToken.allowedRefundReceiversCount).to.equal(2)
-      expect(await relayModule.isAllowedRefundReceiver(user1.address, tokenAddress, user2.address)).to.eq(true)
-      expect(await relayModule.isAllowedRefundReceiver(user1.address, tokenAddress, user3.address)).to.eq(true)
-    })
-
-    it('sets refund conditions for msg.sender and token address 2', async () => {
-      // const { relayModule } = await setupTests()
-      // const tokenAddress = `0x${'42'.repeat(20)}`
-      // // Set refund boundary
-      // await relayModule.setupRefundBoundary(tokenAddress, 10000000000, 10000000, [user2.address, user3.address])
-      // const refundConditionToken = await relayModule.safeRefundBoundaries(user1.address, tokenAddress)
-      // const refundConditionETH = await relayModule.safeRefundBoundaries(user1.address, AddressZero)
-      // expect(refundConditionETH.maxFeePerGas).to.eq(0)
-      // expect(refundConditionETH.maxGasLimit).to.eq(0)
-      // expect(refundConditionETH.allowedRefundReceiversCount).to.eq(0)
-      // expect(refundConditionToken.maxFeePerGas).to.equal('10000000000')
-      // expect(refundConditionToken.maxGasLimit).to.equal('10000000')
-      // expect(refundConditionToken.allowedRefundReceiversCount).to.equal(1)
-    })
-  })
-
-  describe('isAllowedRefundReceiver', () => {
-    it('should return false when no boundary is set for an address', async () => {
-      const { relayModule } = await setupTests()
-
-      const isAllowed = await relayModule.isAllowedRefundReceiver(user1.address, AddressZero, user2.address)
-
-      expect(isAllowed).to.equal(false)
-    })
-
-    it('should return false when a boundary is set for an address but the receiver is not allowlisted', async () => {
-      const { relayModule, safe } = await setupTests()
-
-      await relayModule.setupRefundBoundary(CONTRACT_NATIVE_TOKEN_ADDRESS, 10000000000, 10000000, [user2.address])
-
-      const isAllowed = await relayModule.isAllowedRefundReceiver(user1.address, CONTRACT_NATIVE_TOKEN_ADDRESS, safe.address)
-      expect(isAllowed).to.equal(false)
-    })
-
-    it('should return true when a boundary is set for an address and the receiver is allowlisted', async () => {
-      const { relayModule } = await setupTests()
-
-      await relayModule.setupRefundBoundary(CONTRACT_NATIVE_TOKEN_ADDRESS, 10000000000, 10000000, [user2.address])
-
-      const isAllowed = await relayModule.isAllowedRefundReceiver(user1.address, CONTRACT_NATIVE_TOKEN_ADDRESS, user2.address)
-      expect(isAllowed).to.equal(true)
-    })
-
-    it('should return true when no allowlist is enforced', async () => {
-      const { relayModule } = await setupTests()
-
-      await relayModule.setupRefundBoundary(AddressZero, 10000000000, 10000000, [])
-
-      const isAllowed = await relayModule.isAllowedRefundReceiver(user1.address, AddressZero, user2.address)
-      expect(isAllowed).to.equal(true)
     })
   })
 
@@ -422,7 +345,7 @@ describe('SafeRelayBoundedRefund', async () => {
       const refundParams = buildRefundParams(safe.address, '1', CONTRACT_NATIVE_TOKEN_ADDRESS, 120000, 10000000000, user2.address)
 
       await expect(executeModuleTxWithSigners(safe.address, relayModule, safeTransaction, refundParams, user1)).to.be.revertedWith(
-        'InvalidRefundReceiver()',
+        'RefundReceiverNotAllowed()',
       )
     })
 

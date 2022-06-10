@@ -13,7 +13,7 @@ error DuplicateRefundReceiver();
 error InvalidRefundReceiver();
 
 /// @notice Thrown when the number does not fit in the range of uint16
-error Uint16Overflow();
+error Uint16Overflow(uint256 number, uint256 max);
 
 /**
  * @title BoundaryManager
@@ -24,8 +24,8 @@ contract BoundaryManager {
     // safeAddress -> tokenAddress -> RefundBoundary
     mapping(address => mapping(address => RefundBoundary)) public safeRefundBoundaries;
 
-    event BoundarySet(address indexed safe, address indexed token, uint120 maxGasLimit, uint120 maxFeePerGas, address[] allowlist);
-    event GasBoundaryUpdated(address indexed safe, address indexed token, uint120 maxGasLimit, uint120 maxFeePerGas);
+    event RefundBoundarySet(address indexed safe, address indexed token, uint120 maxFeePerGas, uint120 maxGasLimit, address[] allowlist);
+    event GasBoundaryUpdated(address indexed safe, address indexed token, uint120 maxFeePerGas, uint120 maxGasLimit);
     event AddedRefundReceivers(address indexed safe, address indexed token, address[] receivers);
     event RemovedRefundReceivers(address indexed safe, address indexed token, address[] receivers);
 
@@ -47,7 +47,8 @@ contract BoundaryManager {
     /**  @notice Sets up refund boundary for a given safe and gas token.
      *           Can only be set once. To update the boundary use narrow-scoped functions:
      *           updateGasBoundaries, addRefundReceivers, addRefundReceivers
-     *           To the boundary cna be disabled by setting maxGasLimit or maxFeePerGas to 0.
+     *           The boundary can be disabled by setting maxGasLimit or maxFeePerGas to 0.
+     *           To reset the boundary, it has to be cleaned up first: gas parameters set to 0, and refund receivers removed.
      * @param tokenAddress Refund token address
      * @param maxFeePerGas Maximum gas price to refund
      * @param maxGasLimit Maximum gas limit that can be refunded
@@ -81,7 +82,7 @@ contract BoundaryManager {
             }
         }
 
-        emit BoundarySet(msg.sender, tokenAddress, maxGasLimit, maxFeePerGas, refundReceiverAllowlist);
+        emit RefundBoundarySet(msg.sender, tokenAddress, maxFeePerGas, maxGasLimit, refundReceiverAllowlist);
     }
 
     /**  @notice Updates the gas boundaries for msg.sender and provided gas token.
@@ -98,7 +99,7 @@ contract BoundaryManager {
         safeRefundBoundary.maxFeePerGas = maxFeePerGas;
         safeRefundBoundary.maxGasLimit = maxGasLimit;
 
-        emit GasBoundaryUpdated(msg.sender, tokenAddress, maxGasLimit, maxFeePerGas);
+        emit GasBoundaryUpdated(msg.sender, tokenAddress, maxFeePerGas, maxGasLimit);
     }
 
     function addRefundReceivers(address tokenAddress, address[] calldata refundReceivers) public {
@@ -142,12 +143,39 @@ contract BoundaryManager {
             safeRefundBoundaries[safe][tokenAddress].allowedRefundReceiversCount != 0;
     }
 
-    function safeCastToUint16(uint256 x) internal pure returns (uint16 y) {
+    /** @dev A function to check if a given address is a valid refund receiver for a given Safe and token
+     * @param safe Safe address
+     * @param gasToken Gas Token address
+     * @param refundReceiver Refund receiver address
+     * @return Boolean indicating if the address is a valid refund receiver
+     */
+    function isAllowedRefundReceiver(
+        address safe,
+        address gasToken,
+        address refundReceiver
+    ) public view returns (bool) {
+        // The prerequisite is a set boundary (maxFeePerGas != 0 or maxGasLimit != 0)
+        // Receiver is allowed to be refunded in the 'gasToken' currency from the safe if:
+        // 1. No allowlist is set. Therefore, we say it's not enforced
+        // 2. The receiver address is in the list of allowed receivers for that safe address and gas token combination
+        return
+            // Check that the boundary was set
+            (safeRefundBoundaries[safe][gasToken].maxFeePerGas != 0 && safeRefundBoundaries[safe][gasToken].maxGasLimit != 0) &&
+            // Now check if the receiver is allowed
+            (safeRefundBoundaries[safe][gasToken].allowedRefundReceiversCount == 0 ||
+                safeRefundBoundaries[safe][gasToken].refundReceiverAllowlist[refundReceiver]);
+    }
+
+    /** @dev Safely casts uint256 numbers to uint16. Reverts if the number is too large.
+     * @param x uint256 number
+     * @return numba uint16 number
+     */
+    function safeCastToUint16(uint256 x) internal pure returns (uint16 numba) {
         // Shift 1 bit to the left 16 times to get a maximum uint16 value (2^16)
         if (x > 1 << 16) {
-            revert Uint16Overflow();
+            revert Uint16Overflow(x, 1 << 16);
         }
 
-        y = uint16(x);
+        numba = uint16(x);
     }
 }
