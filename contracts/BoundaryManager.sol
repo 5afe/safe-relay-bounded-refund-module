@@ -3,6 +3,9 @@ pragma solidity >=0.8.0 <0.9.0;
 
 /// ERRORS ///
 
+/// @notice Thrown when trying to set a boundary that has already been set
+error BoundaryAlreadySet();
+
 /// @notice Thrown when trying to add duplicate refund receiver
 error DuplicateRefundReceiver();
 
@@ -20,6 +23,8 @@ contract BoundaryManager {
 
     event BoundarySet(address safe, address token, uint120 maxGasLimit, uint120 maxFeePerGas, address[] allowlist);
     event GasBoundaryUpdated(address safe, address token, uint120 maxGasLimit, uint120 maxFeePerGas);
+    event AddedRefundReceivers(address safe, address token, address[] receivers);
+    event RemovedRefundReceivers(address safe, address token, address[] receivers);
 
     /** @dev RefundBoundary struct represents the boundary for refunds
      * @param maxFeePerGas - Maximim gas price that can be refunded, includes basefee and priority fee
@@ -51,6 +56,10 @@ contract BoundaryManager {
         uint120 maxGasLimit,
         address[] calldata refundReceiverAllowlist
     ) public {
+        if (isBoundarySet(msg.sender, tokenAddress)) {
+            revert BoundaryAlreadySet();
+        }
+
         RefundBoundary storage safeRefundBoundary = safeRefundBoundaries[msg.sender][tokenAddress];
         safeRefundBoundary.maxFeePerGas = maxFeePerGas;
         safeRefundBoundary.maxGasLimit = maxGasLimit;
@@ -100,6 +109,8 @@ contract BoundaryManager {
 
             safeRefundBoundary.refundReceiverAllowlist[refundReceivers[i]] = true;
         }
+
+        emit AddedRefundReceivers(msg.sender, tokenAddress, refundReceivers);
     }
 
     function removeRefundReceivers(address tokenAddress, address[] calldata refundReceivers) public {
@@ -113,6 +124,8 @@ contract BoundaryManager {
 
             safeRefundBoundary.refundReceiverAllowlist[refundReceivers[i]] = false;
         }
+
+        emit RemovedRefundReceivers(msg.sender, tokenAddress, refundReceivers);
     }
 
     function isBoundarySet(address safe, address tokenAddress) public view returns (bool) {
