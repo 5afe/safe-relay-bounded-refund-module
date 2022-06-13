@@ -9,7 +9,7 @@ error BoundaryAlreadySet();
 /// @notice Thrown when trying to add duplicate refund receiver
 error DuplicateRefundReceiver();
 
-/// @notice Thrown when the refund receiver was not allowlisted
+/// @notice Thrown when trying to remove a non-existing refund receiver
 error InvalidRefundReceiver();
 
 /// @notice Thrown when the number does not fit in the range of uint16
@@ -20,7 +20,7 @@ import "hardhat/console.sol";
 /**
  * @title BoundaryManager
  * @author @mikhailxyz
- * @notice BoundaryManager is a contract
+ * @notice BoundaryManager contains logic to manage the refund boundary
  */
 contract BoundaryManager {
     // safeAddress -> RefundBoundary
@@ -60,7 +60,7 @@ contract BoundaryManager {
         uint120 maxGasLimit,
         address[] calldata refundReceiverAllowlist
     ) public {
-        if (isBoundarySet(msg.sender)) {
+        if (!isBoundaryEmpty(msg.sender)) {
             revert BoundaryAlreadySet();
         }
 
@@ -85,7 +85,8 @@ contract BoundaryManager {
         emit RefundBoundarySet(msg.sender, maxFeePerGas, maxGasLimit, refundReceiverAllowlist);
     }
 
-    /**  @notice Updates the gas boundaries for msg.sender and provided gas token.
+    /**  @notice Updates the gas boundaries for msg.sender
+     *           The boundary can also be disabled by setting maxGasLimit or maxFeePerGas to 0.
      * @param maxFeePerGas Maximum gas price to refund
      * @param maxGasLimit Maximum gas limit that can be refunded
      */
@@ -97,6 +98,9 @@ contract BoundaryManager {
         emit GasBoundaryUpdated(msg.sender, maxFeePerGas, maxGasLimit);
     }
 
+    /**  @notice Adds refund receivers to the boundary allowlist
+     * @param refundReceivers List of refund receivers addresses
+     */
     function addRefundReceivers(address[] calldata refundReceivers) public {
         RefundBoundary storage safeRefundBoundary = safeRefundBoundaries[msg.sender];
         safeRefundBoundary.allowedRefundReceiversCount =
@@ -105,7 +109,7 @@ contract BoundaryManager {
 
         for (uint16 i = 0; i < refundReceivers.length; i++) {
             if (safeRefundBoundary.refundReceiverAllowlist[refundReceivers[i]]) {
-                revert InvalidRefundReceiver();
+                revert DuplicateRefundReceiver();
             }
 
             safeRefundBoundary.refundReceiverAllowlist[refundReceivers[i]] = true;
@@ -114,6 +118,9 @@ contract BoundaryManager {
         emit AddedRefundReceivers(msg.sender, refundReceivers);
     }
 
+    /** @notice Removes refund receivers from the boundary allowlist
+     * @param refundReceivers List of refund receivers addresses
+     */
     function removeRefundReceivers(address[] calldata refundReceivers) public {
         RefundBoundary storage safeRefundBoundary = safeRefundBoundaries[msg.sender];
         safeRefundBoundary.allowedRefundReceiversCount =
@@ -131,23 +138,26 @@ contract BoundaryManager {
         emit RemovedRefundReceivers(msg.sender, refundReceivers);
     }
 
-    function isBoundarySet(address safe) public view returns (bool) {
+    /** @dev Function to check if the boundary is empty
+     * @param safe Address of the safe to check
+     */
+    function isBoundaryEmpty(address safe) internal view returns (bool) {
         return
             safeRefundBoundaries[safe].maxFeePerGas != 0 ||
             safeRefundBoundaries[safe].maxGasLimit != 0 ||
             safeRefundBoundaries[safe].allowedRefundReceiversCount != 0;
     }
 
-    /** @dev A function to check if a given address is a valid refund receiver for a given Safe and token
+    /** @notice A function to check if a given address is a valid refund receiver for a given Safe
+     * @dev The prerequisite is a set boundary (maxFeePerGas != 0 or maxGasLimit != 0)
+     *      Receiver is allowed to be refunded if:
+     *      1. No allowlist is set (counter is 0). Therefore, we say it's not enforced
+     *      2. The receiver address is in the list of allowed receivers for that safe address and gas token combination
      * @param safe Safe address
      * @param refundReceiver Refund receiver address
      * @return Boolean indicating if the address is a valid refund receiver
      */
     function isAllowedRefundReceiver(address safe, address refundReceiver) public view returns (bool) {
-        // The prerequisite is a set boundary (maxFeePerGas != 0 or maxGasLimit != 0)
-        // Receiver is allowed to be refunded if:
-        // 1. No allowlist is set (counter is 0). Therefore, we say it's not enforced
-        // 2. The receiver address is in the list of allowed receivers for that safe address and gas token combination
         return
             // Check that the boundary was set
             (safeRefundBoundaries[safe].maxFeePerGas != 0 && safeRefundBoundaries[safe].maxGasLimit != 0) &&
