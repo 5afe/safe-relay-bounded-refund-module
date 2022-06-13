@@ -15,6 +15,8 @@ error InvalidRefundReceiver();
 /// @notice Thrown when the number does not fit in the range of uint16
 error Uint16Overflow(uint256 number, uint256 max);
 
+import "hardhat/console.sol";
+
 /**
  * @title BoundaryManager
  * @author @mikhailxyz
@@ -159,9 +161,8 @@ contract BoundaryManager {
      * @return numba uint16 number
      */
     function safeCastToUint16(uint256 x) internal pure returns (uint16 numba) {
-        // Shift 1 bit to the left 16 times to get a maximum uint16 value (2^16)
-        if (x > 1 << 16) {
-            revert Uint16Overflow(x, 1 << 16);
+        if (x > type(uint16).max) {
+            revert Uint16Overflow(x, type(uint16).max);
         }
 
         numba = uint16(x);

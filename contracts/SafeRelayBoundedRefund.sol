@@ -47,7 +47,6 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
     // keccak256(execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes))
     bytes4 private constant EXEC_TRANSACTION_SIGNATURE = 0x6a761202;
 
-    address private constant NATIVE_TOKEN = address(0);
     uint16 private constant COVERED_REFUND_PAYMENT_GAS = 23000;
 
     event SuccessfulExecution(bytes32 relayedDataHash, uint256 payment);
