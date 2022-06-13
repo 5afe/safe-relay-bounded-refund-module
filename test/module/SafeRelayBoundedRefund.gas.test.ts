@@ -2,7 +2,7 @@ import { parseEther } from '@ethersproject/units'
 import { AddressZero } from '@ethersproject/constants'
 import { deployments, waffle } from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
-import { getTestSafe, getRelayModuleInstance, getTestRevertoor, getTestRelayerToken } from '../utils/setup'
+import { getTestSafe, getRelayModuleInstance, getTestRevertoor } from '../utils/setup'
 import {
   buildSafeTransaction,
   buildContractCall,
@@ -12,7 +12,6 @@ import {
 } from '../../src/utils/execution'
 
 import { logGas } from '../../src/utils/gas'
-import { CONTRACT_NATIVE_TOKEN_ADDRESS } from '../../src/utils/constants'
 import { sortAddresses } from '../utils/addresses'
 
 describe('RelayModuleFixedReward', async () => {
@@ -24,13 +23,11 @@ describe('RelayModuleFixedReward', async () => {
     const relayModule = await getRelayModuleInstance()
     const safe = await getTestSafe(user1, relayModule.address)
     const revertooor = await getTestRevertoor(user1)
-    const erc20 = await getTestRelayerToken(user1)
 
     return {
       safe,
       relayModule,
       revertooor,
-      erc20,
     }
   })
 
@@ -41,7 +38,7 @@ describe('RelayModuleFixedReward', async () => {
 
       await logGas(
         'calling setBoundary',
-        relayModule.setupRefundBoundary(tokenAddress, 10000000000, 10000000, sortAddresses([user1.address, user2.address])),
+        relayModule.setupRefundBoundary(10000000000, 10000000, sortAddresses([user1.address, user2.address])),
       )
     })
 
@@ -62,7 +59,7 @@ describe('RelayModuleFixedReward', async () => {
       // Set refund boundary
       await execSafeTransaction(
         safe,
-        buildContractCall(relayModule, 'setupRefundBoundary', [CONTRACT_NATIVE_TOKEN_ADDRESS, 10000000000, 10000000, [user1.address]], {
+        buildContractCall(relayModule, 'setupRefundBoundary', [10000000000, 10000000, [user1.address]], {
           nonce: 0,
           operation: 0,
         }),
@@ -70,7 +67,7 @@ describe('RelayModuleFixedReward', async () => {
 
       const safeTransaction = buildSafeTransaction({ to: user1.address, value: 0, nonce: '1', data: '0xbaddad42' })
 
-      const refundParams = buildRefundParams(safe.address, '1', CONTRACT_NATIVE_TOKEN_ADDRESS, 120000, 10000000000, user1.address)
+      const refundParams = buildRefundParams(safe.address, '1', 120000, 10000000000, user1.address)
 
       await logGas(
         'executing a transaction via relay module',

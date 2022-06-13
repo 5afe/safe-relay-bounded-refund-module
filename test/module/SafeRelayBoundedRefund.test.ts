@@ -3,7 +3,7 @@ import { AddressZero } from '@ethersproject/constants'
 import { expect } from 'chai'
 import hre, { deployments, waffle } from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
-import { getTestSafe, getRelayModuleInstance, getTestRevertoor, getTestRelayerToken } from '../utils/setup'
+import { getTestSafe, getRelayModuleInstance, getTestRevertoor } from '../utils/setup'
 import {
   buildSafeTransaction,
   buildContractCall,
@@ -18,7 +18,6 @@ import {
 } from '../../src/utils/execution'
 import { parseEther } from '@ethersproject/units'
 import { chainId } from '../utils/encoding'
-import { CONTRACT_NATIVE_TOKEN_ADDRESS } from '../../src/utils/constants'
 
 describe('SafeRelayBoundedRefund', async () => {
   const [user1, user2] = waffle.provider.getWallets()
@@ -29,13 +28,11 @@ describe('SafeRelayBoundedRefund', async () => {
     const relayModule = await getRelayModuleInstance()
     const safe = await getTestSafe(user1, relayModule.address)
     const revertooor = await getTestRevertoor(user1)
-    const erc20 = await getTestRelayerToken(user1)
 
     return {
       safe,
       relayModule,
       revertooor,
-      erc20,
     }
   })
 
@@ -43,7 +40,7 @@ describe('SafeRelayBoundedRefund', async () => {
     it('should correctly calculate EIP-712 hash of the refund params', async () => {
       const { safe, relayModule } = await setupTests()
 
-      const refundParamsHash = await relayModule.getRefundParamsHash(safe.address, 0, AddressZero, 1000000, 1000000, user1.address)
+      const refundParamsHash = await relayModule.getRefundParamsHash(safe.address, 0, 1000000, 1000000, user1.address)
 
       expect(refundParamsHash).to.eq(
         calculateRefundParamsHash(
@@ -51,7 +48,6 @@ describe('SafeRelayBoundedRefund', async () => {
           {
             safeAddress: safe.address,
             nonce: 0,
-            gasToken: AddressZero,
             maxFeePerGas: 1000000,
             gasLimit: 1000000,
             refundReceiver: user1.address,
@@ -69,7 +65,7 @@ describe('SafeRelayBoundedRefund', async () => {
       // Set refund boundary
       await execSafeTransaction(
         safe,
-        buildContractCall(relayModule, 'setupRefundBoundary', [CONTRACT_NATIVE_TOKEN_ADDRESS, 10000000000, 10000000, [user2.address]], {
+        buildContractCall(relayModule, 'setupRefundBoundary', [10000000000, 10000000, [user2.address]], {
           nonce: 0,
           operation: 0,
         }),
@@ -78,7 +74,7 @@ describe('SafeRelayBoundedRefund', async () => {
       const contractInterface = new hre.ethers.utils.Interface(['function enableModule(address module)'])
       const encodedCall = contractInterface.encodeFunctionData('enableModule', [user2.address])
 
-      const refundParams = buildRefundParams(safe.address, '1', CONTRACT_NATIVE_TOKEN_ADDRESS, 500000, 10000000000, user1.address)
+      const refundParams = buildRefundParams(safe.address, '1', 500000, 10000000000, user1.address)
       const signedRefundParams: SignedRefundParams = {
         ...refundParams,
         signature: (await signRefundParamsTypedData(user1, relayModule, refundParams)).data,
@@ -96,7 +92,7 @@ describe('SafeRelayBoundedRefund', async () => {
       // Set refund boundary
       await execSafeTransaction(
         safe,
-        buildContractCall(relayModule, 'setupRefundBoundary', [CONTRACT_NATIVE_TOKEN_ADDRESS, 10000000000, 10000000, [user2.address]], {
+        buildContractCall(relayModule, 'setupRefundBoundary', [10000000000, 10000000, [user2.address]], {
           nonce: 0,
           operation: 0,
         }),
@@ -108,7 +104,7 @@ describe('SafeRelayBoundedRefund', async () => {
         nonce: '2',
       })
 
-      const refundParams = buildRefundParams(safe.address, '2', CONTRACT_NATIVE_TOKEN_ADDRESS, 500000, 10000000000, user1.address)
+      const refundParams = buildRefundParams(safe.address, '2', 500000, 10000000000, user1.address)
 
       await expect(executeModuleTxWithSigners(safe.address, relayModule, safeTransaction, refundParams, user1)).to.be.revertedWith(
         'GnosisSafeMock: Invalid signature',
@@ -121,7 +117,7 @@ describe('SafeRelayBoundedRefund', async () => {
       // Set refund boundary
       await execSafeTransaction(
         safe,
-        buildContractCall(relayModule, 'setupRefundBoundary', [CONTRACT_NATIVE_TOKEN_ADDRESS, 10000000000, 10000000, [user2.address]], {
+        buildContractCall(relayModule, 'setupRefundBoundary', [10000000000, 10000000, [user2.address]], {
           nonce: 0,
           operation: 0,
         }),
@@ -134,7 +130,7 @@ describe('SafeRelayBoundedRefund', async () => {
       })
 
       const refundParams = {
-        ...buildRefundParams(safe.address, '1', CONTRACT_NATIVE_TOKEN_ADDRESS, 500000, 10000000000, user1.address),
+        ...buildRefundParams(safe.address, '1', 500000, 10000000000, user1.address),
         signature: '0x',
       }
 
@@ -149,7 +145,7 @@ describe('SafeRelayBoundedRefund', async () => {
       // Set refund boundary
       await execSafeTransaction(
         safe,
-        buildContractCall(relayModule, 'setupRefundBoundary', [CONTRACT_NATIVE_TOKEN_ADDRESS, 10000000000, 10000000, [user2.address]], {
+        buildContractCall(relayModule, 'setupRefundBoundary', [10000000000, 10000000, [user2.address]], {
           nonce: 0,
           operation: 0,
         }),
@@ -162,21 +158,21 @@ describe('SafeRelayBoundedRefund', async () => {
         value: '1000000000000000000',
         nonce: '1',
       })
-      const refundParams = buildRefundParams(safe.address, '1', CONTRACT_NATIVE_TOKEN_ADDRESS, 500000, 10000000000, user1.address)
+      const refundParams = buildRefundParams(safe.address, '1', 500000, 10000000000, user1.address)
 
       await expect(
         executeModuleTxWithSigners(safe.address, relayModule, safeTransaction, refundParams, user1, { gasLimit: 300000 }),
       ).to.be.revertedWith('NotEnoughGas')
     })
 
-    it('should send ether refund', async () => {
+    it('should send native token refund', async () => {
       const { safe, relayModule } = await setupTests()
       const provider = hre.ethers.provider
 
       // Set refund boundary
       await execSafeTransaction(
         safe,
-        buildContractCall(relayModule, 'setupRefundBoundary', [CONTRACT_NATIVE_TOKEN_ADDRESS, 10000000000, 10000000, [user2.address]], {
+        buildContractCall(relayModule, 'setupRefundBoundary', [10000000000, 10000000, [user2.address]], {
           nonce: 0,
           operation: 0,
         }),
@@ -189,7 +185,7 @@ describe('SafeRelayBoundedRefund', async () => {
 
       const safeTransaction = buildSafeTransaction({ to: user1.address, value: transferAmountWei, nonce: '1' })
 
-      const refundParams = buildRefundParams(safe.address, '1', CONTRACT_NATIVE_TOKEN_ADDRESS, 120000, 10000000000, user2.address)
+      const refundParams = buildRefundParams(safe.address, '1', 120000, 10000000000, user2.address)
 
       const user2BalanceBeforeTransfer = await provider.getBalance(user2.address)
       const tx = executeModuleTxWithSigners(safe.address, relayModule, safeTransaction, refundParams, user1)
@@ -203,14 +199,14 @@ describe('SafeRelayBoundedRefund', async () => {
       expect(user2BalanceAfterTransfer).to.be.equal(user2BalanceBeforeTransfer.add(successEvent.payment))
     })
 
-    it('should fail if ether refund fails', async () => {
+    it('should fail if native token refund fails', async () => {
       const { safe, relayModule } = await setupTests()
       const provider = hre.ethers.provider
 
       // Set refund boundary
       await execSafeTransaction(
         safe,
-        buildContractCall(relayModule, 'setupRefundBoundary', [CONTRACT_NATIVE_TOKEN_ADDRESS, 10000000000, 10000000, [user2.address]], {
+        buildContractCall(relayModule, 'setupRefundBoundary', [10000000000, 10000000, [user2.address]], {
           nonce: 0,
           operation: 0,
         }),
@@ -222,65 +218,12 @@ describe('SafeRelayBoundedRefund', async () => {
 
       // The safe doesnt have enough balance to cover the gas refund
       const safeTransaction = buildSafeTransaction({ to: user1.address, value: transferAmountWei, nonce: '1' })
-      const refundParams = buildRefundParams(safe.address, '1', CONTRACT_NATIVE_TOKEN_ADDRESS, 120000, 10000000000, user2.address)
+      const refundParams = buildRefundParams(safe.address, '1', 120000, 10000000000, user2.address)
       const queueConnectedToUser2 = await relayModule.connect(user2)
 
       await expect(
         executeModuleTxWithSigners(safe.address, queueConnectedToUser2, safeTransaction, refundParams, user1),
       ).to.be.revertedWith('RefundFailure()')
-    })
-
-    it('should send token refund', async () => {
-      const { safe, relayModule, erc20 } = await setupTests()
-      const gasPrice = BigNumber.from('1000000000')
-      const gasLimit = BigNumber.from('150000')
-      const maxGasRefund = gasLimit.mul(gasPrice)
-
-      await user1.sendTransaction({ to: safe.address, value: parseEther('0.1') })
-      await erc20.transfer(safe.address, maxGasRefund)
-
-      // Set refund boundary
-      await execSafeTransaction(
-        safe,
-        buildContractCall(relayModule, 'setupRefundBoundary', [erc20.address, 10000000000, 10000000, [user2.address]], {
-          nonce: 0,
-          operation: 0,
-        }),
-      )
-
-      const safeTx = buildSafeTransaction({ to: user1.address, value: parseEther('0.1'), nonce: '1' })
-      const refundParams = buildRefundParams(safe.address, '1', erc20.address, gasLimit.toString(), gasPrice.toString(), user2.address)
-      expect(await erc20.balanceOf(user2.address)).to.eq(0)
-      const tx = executeModuleTxWithSigners(safe.address, relayModule, safeTx, refundParams, user1)
-
-      await expect(tx).to.emit(relayModule, 'SuccessfulExecution')
-      const txReceipt = await (await tx).wait(1)
-      const successEvent = relayModule.interface.decodeEventLog('SuccessfulExecution', txReceipt.logs[1].data, txReceipt.logs[1].topics)
-      const user2BalanceAfterTransfer = await erc20.balanceOf(user2.address)
-
-      expect(user2BalanceAfterTransfer).to.be.equal(successEvent.payment)
-    })
-
-    it('should fail if token transfer fails', async () => {
-      const { safe, relayModule, erc20 } = await setupTests()
-      const gasPrice = BigNumber.from('1000000000')
-      const gasLimit = BigNumber.from('150000')
-
-      await user1.sendTransaction({ to: safe.address, value: parseEther('0.1') })
-
-      // Set refund boundary
-      await execSafeTransaction(
-        safe,
-        buildContractCall(relayModule, 'setupRefundBoundary', [erc20.address, 10000000000, 10000000, [user2.address]], {
-          nonce: 0,
-          operation: 0,
-        }),
-      )
-
-      const safeTx = buildSafeTransaction({ to: user1.address, value: parseEther('0.1'), nonce: '1' })
-      const refundParams = buildRefundParams(safe.address, '1', erc20.address, gasLimit, gasPrice, user2.address)
-
-      await expect(executeModuleTxWithSigners(safe.address, relayModule, safeTx, refundParams, user1)).to.be.revertedWith('RefundFailure()')
     })
 
     it('should revert if the relayed call fails', async () => {
@@ -289,7 +232,7 @@ describe('SafeRelayBoundedRefund', async () => {
       // Set refund boundary
       await execSafeTransaction(
         safe,
-        buildContractCall(relayModule, 'setupRefundBoundary', [CONTRACT_NATIVE_TOKEN_ADDRESS, 10000000000, 10000000, [user2.address]], {
+        buildContractCall(relayModule, 'setupRefundBoundary', [10000000000, 10000000, [user2.address]], {
           nonce: 0,
           operation: 0,
         }),
@@ -298,7 +241,7 @@ describe('SafeRelayBoundedRefund', async () => {
 
       await user1.sendTransaction({ to: safe.address, value: maxGasRefund })
 
-      const refundParams = buildRefundParams(safe.address, '1', CONTRACT_NATIVE_TOKEN_ADDRESS, 150000, 10000000000, user2.address)
+      const refundParams = buildRefundParams(safe.address, '1', 150000, 10000000000, user2.address)
 
       await expect(
         executeModuleContractCallWithSigners(
@@ -325,7 +268,7 @@ describe('SafeRelayBoundedRefund', async () => {
       // Set refund boundary
       await execSafeTransaction(
         safe,
-        buildContractCall(relayModule, 'setupRefundBoundary', [CONTRACT_NATIVE_TOKEN_ADDRESS, 10000000000, 10000000, [user1.address]], {
+        buildContractCall(relayModule, 'setupRefundBoundary', [10000000000, 10000000, [user1.address]], {
           nonce: 0,
           operation: 0,
         }),
@@ -342,7 +285,7 @@ describe('SafeRelayBoundedRefund', async () => {
         value: transferAmountWei,
         nonce: '1',
       })
-      const refundParams = buildRefundParams(safe.address, '1', CONTRACT_NATIVE_TOKEN_ADDRESS, 120000, 10000000000, user2.address)
+      const refundParams = buildRefundParams(safe.address, '1', 120000, 10000000000, user2.address)
 
       await expect(executeModuleTxWithSigners(safe.address, relayModule, safeTransaction, refundParams, user1)).to.be.revertedWith(
         'RefundReceiverNotAllowed()',
@@ -357,15 +300,10 @@ describe('SafeRelayBoundedRefund', async () => {
       // Set refund boundary
       await execSafeTransaction(
         safe,
-        buildContractCall(
-          relayModule,
-          'setupRefundBoundary',
-          [CONTRACT_NATIVE_TOKEN_ADDRESS, MAX_GASPRICE_REFUND, MAX_GAS_LIMIT, [user2.address]],
-          {
-            nonce: 0,
-            operation: 0,
-          },
-        ),
+        buildContractCall(relayModule, 'setupRefundBoundary', [MAX_GASPRICE_REFUND, MAX_GAS_LIMIT, [user2.address]], {
+          nonce: 0,
+          operation: 0,
+        }),
       )
       const provider = hre.ethers.provider
       const transferAmountWei = parseEther('1.5')
@@ -377,14 +315,7 @@ describe('SafeRelayBoundedRefund', async () => {
       expect(await provider.getBalance(safe.address)).to.eq(transferAmountWei.add(maxRefund))
 
       const safeTransaction = buildSafeTransaction({ to: user1.address, value: transferAmountWei, nonce: '1' })
-      const refundParams = buildRefundParams(
-        safe.address,
-        '1',
-        CONTRACT_NATIVE_TOKEN_ADDRESS,
-        TX_GAS_LIMIT,
-        OUT_OF_BOUND_GASPRICE,
-        user2.address,
-      )
+      const refundParams = buildRefundParams(safe.address, '1', TX_GAS_LIMIT, OUT_OF_BOUND_GASPRICE, user2.address)
 
       await expect(executeModuleTxWithSigners(safe.address, relayModule, safeTransaction, refundParams, user1)).to.be.revertedWith(
         `RefundGasBoundariesNotMet(${TX_GAS_LIMIT}, ${OUT_OF_BOUND_GASPRICE}, ${MAX_GAS_LIMIT}, ${MAX_GASPRICE_REFUND})`,
@@ -402,7 +333,7 @@ describe('SafeRelayBoundedRefund', async () => {
 
       await execSafeTransaction(
         safe,
-        buildContractCall(relayModule, 'setupRefundBoundary', [CONTRACT_NATIVE_TOKEN_ADDRESS, GAS_PRICE, MAX_GAS_LIMIT, [user2.address]], {
+        buildContractCall(relayModule, 'setupRefundBoundary', [GAS_PRICE, MAX_GAS_LIMIT, [user2.address]], {
           nonce: 0,
           operation: 0,
         }),
@@ -412,14 +343,7 @@ describe('SafeRelayBoundedRefund', async () => {
       expect(await provider.getBalance(safe.address)).to.eq(transferAmountWei.add(maxGasRefund))
 
       const safeTransaction = buildSafeTransaction({ to: user1.address, value: transferAmountWei, nonce: '1' })
-      const refundParams = buildRefundParams(
-        safe.address,
-        '1',
-        CONTRACT_NATIVE_TOKEN_ADDRESS,
-        MAX_GAS_LIMIT.add(1),
-        GAS_PRICE,
-        user2.address,
-      )
+      const refundParams = buildRefundParams(safe.address, '1', MAX_GAS_LIMIT.add(1), GAS_PRICE, user2.address)
 
       await expect(executeModuleTxWithSigners(safe.address, relayModule, safeTransaction, refundParams, user1)).to.be.revertedWith(
         `RefundGasBoundariesNotMet(${MAX_GAS_LIMIT.add(1)}, ${GAS_PRICE}, ${MAX_GAS_LIMIT}, ${GAS_PRICE})`,

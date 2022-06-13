@@ -80,8 +80,5 @@
   },
   "peerDependencies": {
     "ethers": "^5.1.4"
-  },
-  "dependencies": {
-    "@rari-capital/solmate": "^6.3.0"
   }
 }

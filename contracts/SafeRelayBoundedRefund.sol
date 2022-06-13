@@ -42,9 +42,7 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
     bytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
 
     bytes32 private constant REFUND_PARAMS_TYPEHASH =
-        keccak256(
-            "RefundParams(address safeAddress,uint256 nonce,address gasToken,uint120 gasLimit,uint120 maxFeePerGas,address refundReceiver)"
-        );
+        keccak256("RefundParams(address safeAddress,uint256 nonce,uint120 gasLimit,uint120 maxFeePerGas,address refundReceiver)");
 
     // keccak256(execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes))
     bytes4 private constant EXEC_TRANSACTION_SIGNATURE = 0x6a761202;
@@ -56,7 +54,6 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
 
     /** @dev RefundParams struct represents the transaction refund params. Signed params also include safe transaction nonce.
      * @param safe - Safe address to pay the refund from
-     * @param gasToken - Refund gas token, address(0) for a native token
      * @param gasLimit - Maximum gas limit for a transaction, returned is the minimum of gas spend and transaction gas limit
      * @param maxFeePerGas - Maximim gas price that can be refunded, includes basefee and priority fee
      * @param allowedRefundReceiversCount - Count of allowed refund receivers, we use it to track if the allowlist is enforced
@@ -64,7 +61,6 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
      */
     struct RefundParams {
         address payable safeAddress;
-        address gasToken;
         uint120 gasLimit;
         uint120 maxFeePerGas;
         address payable refundReceiver;
@@ -101,12 +97,10 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
 
         /*                      REFUND PARAMS SIGNATURE CHECK                      */
         address payable safeAddress = transactionRefundParams.safeAddress;
-        address gasToken = transactionRefundParams.gasToken;
 
         bytes memory encodedRefundParamsData = encodeRefundParamsData(
             safeAddress,
             Safe(safeAddress).nonce(),
-            gasToken,
             transactionRefundParams.gasLimit,
             transactionRefundParams.maxFeePerGas,
             transactionRefundParams.refundReceiver
@@ -115,9 +109,9 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
         Safe(safeAddress).checkNSignatures(refundParamsHash, encodedRefundParamsData, transactionRefundParams.signature, 1);
 
         /*                      BOUNDARY CHECKS                      */
-        RefundBoundary storage safeRefundBoundary = safeRefundBoundaries[safeAddress][gasToken];
+        RefundBoundary storage safeRefundBoundary = safeRefundBoundaries[safeAddress];
         /*                      REFUND RECEIVER CHECK                      */
-        if (!isAllowedRefundReceiver(safeAddress, gasToken, transactionRefundParams.refundReceiver)) {
+        if (!isAllowedRefundReceiver(safeAddress, transactionRefundParams.refundReceiver)) {
             revert RefundReceiverNotAllowed();
         }
 
@@ -158,23 +152,14 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
         uint256 gasConsumed = startGas - gasleft() + COVERED_REFUND_PAYMENT_GAS;
         payment = min(gasConsumed, refundParams.gasLimit) * refundParams.maxFeePerGas;
 
-        if (refundParams.gasToken == NATIVE_TOKEN) {
-            if (!execute(refundParams.safeAddress, receiver, payment, "0x")) {
-                revert RefundFailure();
-            }
-        } else {
-            // 0xa9059cbb - keccack("transfer(address,uint256)")
-            bytes memory data = abi.encodeWithSelector(0xa9059cbb, receiver, payment);
-            if (!execute(refundParams.safeAddress, refundParams.gasToken, 0, data)) {
-                revert RefundFailure();
-            }
+        if (!execute(refundParams.safeAddress, receiver, payment, "0x")) {
+            revert RefundFailure();
         }
     }
 
     /**  @dev Returns the refund params hash to be signed by owners.
      * @param safeAddress Safe address
      * @param nonce Safe transaction nonce
-     * @param gasToken Gas Token address
      * @param gasLimit Transaction gas limit
      * @param maxFeePerGas Maximum gas price
      * @param refundReceiver Refund recipient address
@@ -183,13 +168,12 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
     function encodeRefundParamsData(
         address safeAddress,
         uint256 nonce,
-        address gasToken,
         uint120 gasLimit,
         uint120 maxFeePerGas,
         address refundReceiver
     ) public view returns (bytes memory) {
         bytes32 safeOperationHash = keccak256(
-            abi.encode(REFUND_PARAMS_TYPEHASH, safeAddress, nonce, gasToken, gasLimit, maxFeePerGas, refundReceiver)
+            abi.encode(REFUND_PARAMS_TYPEHASH, safeAddress, nonce, gasLimit, maxFeePerGas, refundReceiver)
         );
 
         return abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator(), safeOperationHash);
@@ -198,7 +182,6 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
     /**  @dev Returns the refund params hash to be signed by owners.
      * @param safeAddress Safe address
      * @param nonce Safe transaction nonce
-     * @param gasToken Gas Token address
      * @param gasLimit Transaction gas limit
      * @param maxFeePerGas Maximum gas price
      * @param refundReceiver Refund recipient address
@@ -207,12 +190,11 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
     function getRefundParamsHash(
         address safeAddress,
         uint256 nonce,
-        address gasToken,
         uint120 gasLimit,
         uint120 maxFeePerGas,
         address refundReceiver
     ) public view returns (bytes32) {
-        return keccak256(encodeRefundParamsData(safeAddress, nonce, gasToken, gasLimit, maxFeePerGas, refundReceiver));
+        return keccak256(encodeRefundParamsData(safeAddress, nonce, gasLimit, maxFeePerGas, refundReceiver));
     }
 
     /** @dev Internal function to execute a transaction from the Safe

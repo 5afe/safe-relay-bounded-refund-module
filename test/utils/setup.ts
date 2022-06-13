@@ -3,37 +3,24 @@ import hre, { deployments } from 'hardhat'
 import { Signer, Contract } from 'ethers'
 import solc from 'solc'
 
-export async function getRelayModuleDeployment() {
+async function getRelayModuleDeployment() {
   return await deployments.get('SafeRelayBoundedRefund')
 }
 
-export async function getRelayModuleContractFactory() {
+async function getRelayModuleContractFactory() {
   return await hre.ethers.getContractFactory('SafeRelayBoundedRefund')
 }
 
-export async function getRelayModuleInstance() {
+async function getRelayModuleInstance() {
   return (await getRelayModuleContractFactory()).attach((await getRelayModuleDeployment()).address)
 }
-
-export async function getRelayerTokenContract() {
-  return await hre.ethers.getContractFactory('RelayerToken')
-}
-
-export async function getTestRelayerToken(deployer: Signer) {
-  const tokenFactory = await getRelayerTokenContract()
-  const factoryWithDeployer = tokenFactory.connect(deployer)
-  const relayerToken = await factoryWithDeployer.deploy()
-
-  return relayerToken
-}
-
-export async function getSafeAtAddress(address: string) {
+async function getSafeAtAddress(address: string) {
   const safeMock = await hre.ethers.getContractFactory('GnosisSafeMock')
 
   return safeMock.attach(address)
 }
 
-export async function getTestSafe(deployer: Signer, moduleAddr?: string) {
+async function getTestSafe(deployer: Signer, moduleAddr?: string) {
   const safeFactory = await hre.ethers.getContractFactory('GnosisSafeMock')
   const factoryWithDeployer = safeFactory.connect(deployer)
   const safe = factoryWithDeployer.deploy(moduleAddr || AddressZero)
@@ -41,7 +28,7 @@ export async function getTestSafe(deployer: Signer, moduleAddr?: string) {
   return safe
 }
 
-export async function getTestRevertoor(signer: Signer) {
+async function getTestRevertoor(signer: Signer) {
   const factory = await hre.ethers.getContractFactory('Revertooor')
   const factoryWithDeployer = factory.connect(signer)
   const revertooor = await factoryWithDeployer.deploy()
@@ -49,7 +36,7 @@ export async function getTestRevertoor(signer: Signer) {
   return revertooor
 }
 
-export async function compile(source: string) {
+async function compile(source: string) {
   const input = JSON.stringify({
     language: 'Solidity',
     settings: {
@@ -81,9 +68,20 @@ export async function compile(source: string) {
   }
 }
 
-export async function deployContract(deployer: Signer, source: string): Promise<Contract> {
+async function deployContract(deployer: Signer, source: string): Promise<Contract> {
   const output = await compile(source)
   const transaction = await deployer.sendTransaction({ data: output.data, gasLimit: 6000000 })
   const receipt = await transaction.wait()
   return new Contract(receipt.contractAddress, output.interface, deployer)
+}
+
+export {
+  getRelayModuleDeployment,
+  getRelayModuleContractFactory,
+  getRelayModuleInstance,
+  getSafeAtAddress,
+  getTestSafe,
+  getTestRevertoor,
+  compile,
+  deployContract,
 }

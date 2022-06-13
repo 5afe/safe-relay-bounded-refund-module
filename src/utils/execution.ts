@@ -10,11 +10,10 @@ const EIP_DOMAIN = {
 }
 
 const EIP712_REFUND_PARAMS_TYPE = {
-  // "RefundParams(address safeAddress,uint256 nonce,address gasToken,uint120 gasLimit,uint120 maxFeePerGas,address refundReceiver)"
+  // "RefundParams(address safeAddress,uint256 nonce,uint120 gasLimit,uint120 maxFeePerGas,address refundReceiver)"
   RefundParams: [
     { type: 'address', name: 'safeAddress' },
     { type: 'uint256', name: 'nonce' },
-    { type: 'address', name: 'gasToken' },
     { type: 'uint120', name: 'gasLimit' },
     { type: 'uint120', name: 'maxFeePerGas' },
     { type: 'address', name: 'refundReceiver' },
@@ -37,7 +36,6 @@ interface SafeTransaction extends MetaTransaction {
 interface RefundParams {
   safeAddress: string
   nonce: BigNumberish
-  gasToken: string
   gasLimit: BigNumberish
   maxFeePerGas: BigNumberish
   refundReceiver: string
@@ -138,7 +136,6 @@ async function signRefundParamsTypedData(
 function buildRefundParams(
   safeAddress: string,
   nonce: BigNumberish,
-  gasToken: string,
   gasLimit: BigNumberish,
   maxFeePerGas: BigNumberish,
   refundReceiver: string,
@@ -146,7 +143,6 @@ function buildRefundParams(
   return {
     safeAddress,
     nonce,
-    gasToken,
     gasLimit,
     maxFeePerGas,
     refundReceiver,
