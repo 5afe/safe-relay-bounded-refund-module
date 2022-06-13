@@ -34,7 +34,6 @@ describe('RelayModuleFixedReward', async () => {
   describe('Log gas difference', async () => {
     it('gas consumption for setting a boundary', async () => {
       const { relayModule } = await setupTests()
-      const tokenAddress = `0x${'42'.repeat(20)}`
 
       await logGas(
         'calling setBoundary',

@@ -50,6 +50,7 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
     bytes4 private constant EXEC_TRANSACTION_SIGNATURE = 0x6a761202;
 
     uint16 private constant COVERED_REFUND_PAYMENT_GAS = 23000;
+    address private constant TX_ORIGIN_REFUND_RECEIVER = address(0);
 
     event SuccessfulExecution(bytes32 relayedDataHash, uint256 payment);
 
@@ -147,8 +148,10 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
      * @return payment Amount of refunded gas
      */
     function handleRefund(RefundParams calldata refundParams, uint256 startGas) internal returns (uint256 payment) {
-        // solhint-disable-next-line avoid-tx-origin
-        address payable receiver = refundParams.refundReceiver == address(0) ? payable(tx.origin) : refundParams.refundReceiver;
+        address payable receiver = refundParams.refundReceiver == TX_ORIGIN_REFUND_RECEIVER
+            ? // solhint-disable-next-line avoid-tx-origin
+            payable(tx.origin)
+            : refundParams.refundReceiver;
 
         uint256 gasConsumed = startGas - gasleft() + COVERED_REFUND_PAYMENT_GAS;
         payment = min(gasConsumed, refundParams.gasLimit) * refundParams.maxFeePerGas;

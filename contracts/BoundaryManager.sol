@@ -143,9 +143,9 @@ contract BoundaryManager {
      */
     function isBoundaryEmpty(address safe) internal view returns (bool) {
         return
-            safeRefundBoundaries[safe].maxFeePerGas != 0 ||
-            safeRefundBoundaries[safe].maxGasLimit != 0 ||
-            safeRefundBoundaries[safe].allowedRefundReceiversCount != 0;
+            safeRefundBoundaries[safe].maxFeePerGas == 0 ||
+            safeRefundBoundaries[safe].maxGasLimit == 0 ||
+            safeRefundBoundaries[safe].allowedRefundReceiversCount == 0;
     }
 
     /** @notice A function to check if a given address is a valid refund receiver for a given Safe

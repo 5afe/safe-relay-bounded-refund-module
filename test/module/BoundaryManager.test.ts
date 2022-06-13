@@ -70,8 +70,6 @@ describe('SafeRelayBoundedRefund', async () => {
 
       await relayModule.setupRefundBoundary(10000000000, 10000000, sortAddresses([user2.address, user3.address]))
 
-      expect(await relayModule.isBoundarySet(user1.address)).to.eq(true)
-
       await relayModule.updateGasBoundaries(0, 0)
       await relayModule.removeRefundReceivers([user2.address, user3.address])
 
@@ -119,7 +117,7 @@ describe('SafeRelayBoundedRefund', async () => {
       expect(refundBoundary.allowedRefundReceiversCount).to.equal(2)
 
       const newReceivers = [user2.address]
-      await expect(relayModule.addRefundReceivers(newReceivers)).to.be.revertedWith('InvalidRefundReceiver()')
+      await expect(relayModule.addRefundReceivers(newReceivers)).to.be.revertedWith('DuplicateRefundReceiver()')
     })
 
     it('reverts in case of uint16 receivers list overflow', async () => {
