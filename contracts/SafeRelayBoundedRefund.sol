@@ -152,7 +152,7 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
         uint256 gasConsumed = startGas - gasleft() + COVERED_REFUND_PAYMENT_GAS;
         payment = min(gasConsumed, refundParams.gasLimit) * refundParams.maxFeePerGas;
 
-        if (!execute(refundParams.safeAddress, receiver, payment, "0x")) {
+        if (!Safe(refundParams.safeAddress).execTransactionFromModule(receiver, payment, "", 0)) {
             revert RefundFailure();
         }
     }
@@ -195,22 +195,6 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
         address refundReceiver
     ) public view returns (bytes32) {
         return keccak256(encodeRefundParamsData(safeAddress, nonce, gasLimit, maxFeePerGas, refundReceiver));
-    }
-
-    /** @dev Internal function to execute a transaction from the Safe
-     * @param safeAddress Safe address
-     * @param to Destination address of transaction
-     * @param value Native token value of transaction
-     * @param data Data payload of transaction
-     * @return success Boolean indicating success of the transaction
-     */
-    function execute(
-        address payable safeAddress,
-        address to,
-        uint256 value,
-        bytes memory data
-    ) internal returns (bool success) {
-        success = Safe(safeAddress).execTransactionFromModule(to, value, data, 0);
     }
 
     /** @dev Returns the smallest of two numbers.
