@@ -46,7 +46,7 @@ The signature is checked with the Gnosis Safe Core contract's `checkNSignatures`
 
 #### Refund boundary
 
-The contract has a boundary for the gas parameters to protect from a potentially hacked owner that can sign a transaction with an unnecessary high gas price or a limit. The boundary is set per wallet by executing a call from the wallet contract to the module contract. The boundary has to be set to activate the relaying mechanism. The contract will only relay the transaction if the gas parameters are lower than the boundary.
+The contract has a boundary for the gas parameters to protect from a potentially hacked owner that can sign a transaction with an unnecessary high gas price or a limit. The boundary is set per wallet by executing a call from the wallet contract to the module contract. The boundary has to be set to activate the relaying mechanism. The contract will only relay the transaction if the gas parameters are lower than the boundary. The refund has to be successful, otherwise the transaction will revert.
 
 Boundary includes these parameters:
 
@@ -62,7 +62,7 @@ The boundary can only be set up once. All further edits can be performed through
 
 #### Disabling a boundary
 
-To disable the boundary, one can set the maximum refundable gas price or gas limit to 0, therefore no transaction can be performed.
+To disable the boundary, one can set the maximum refundable gas price or gas limit to 0, therefore no transaction can be refunded and thus relayed.
 
 #### Managing refund receivers list
 
