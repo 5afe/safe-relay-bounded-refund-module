@@ -59,7 +59,7 @@ contract SafeRelayBoundedRefund is BoundaryManager, ReentrancyGuard {
      * @param gasLimit - Maximum gas limit for a transaction, returned is the minimum of gas spend and transaction gas limit
      * @param maxFeePerGas - Maximim gas price that can be refunded, includes basefee and priority fee
      * @param allowedRefundReceiversCount - Count of allowed refund receivers, we use it to track if the allowlist is enforced
-     * @param refundReceiverAllowlist - Capping of allowed refund receivers, address -> bool
+     * @param refundReceiverAllowlist - Mapping of allowed refund receivers, address -> bool
      */
     struct RefundParams {
         address payable safeAddress;

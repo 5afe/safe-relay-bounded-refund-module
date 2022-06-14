@@ -53,7 +53,8 @@ contract BoundaryManager {
      *           To reset the boundary, it has to be cleaned up first: gas parameters set to 0, and refund receivers removed.
      * @param maxFeePerGas Maximum gas price to refund
      * @param maxGasLimit Maximum gas limit that can be refunded
-     * @param refundReceiverAllowlist Sorted addresses of allowed refund receivers
+     * @param refundReceiverAllowlist Sorted addresses of allowed refund receivers.
+     *                                If empty, all refund receivers are allowed.
      */
     function setupRefundBoundary(
         uint120 maxFeePerGas,

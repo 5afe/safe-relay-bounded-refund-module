@@ -4,7 +4,7 @@
 
 ## Description
 
-SafeRelayBoundedRefund is a module for the Gnosis Safe that relays execTransaction call and pays refund to the specified address. The built-in refund mechanism of the Gnosis Safe does not work well for refunds in multi-sig scenarios. For example, the refund gas price is a part of the transaction that has to be signed by the owners. Since the gas price is volatile on some networks, if the network gas price is higher than the refund gas price at the execution, the relayer doesn't have an economic motivation to pick up the transaction. Therefore, the owners must either wait for the price to decrease or regather transaction signatures with a higher gas price. This contract separates the transaction and refund parameters (Gas Price, Gas Limit, Refund Receiver, Gas Token). The refund parameters have to be signed only by one owner. Safe owners can set boundaries for each param to protect from unreasonably high gas prices.
+SafeRelayBoundedRefund is a module for the Gnosis Safe that relays execTransaction call, a method for executing a transaction in the Gnosis Safe Core contract, and sends gas refund using the chain's native token. Read more in [docs](/docs/refund-module.md).
 
 ## Usage
 
@@ -23,7 +23,7 @@ yarn test
 
 ### Deploy
 
-This will deploy the contracts deterministically and verify the contracts on etherscan using [Solidity 0.8.14](https://github.com/ethereum/solidity/releases/tag/v0.8.14) by default.
+This will deploy the contracts deterministically and verify the contracts on etherscan using [Solidity 0.8.14](https://github.com/ethereum/solidity/releases/tag/v0.8.14) by default. Read more in [docs](/docs/deployment.md).
 
 Preparation:
 
