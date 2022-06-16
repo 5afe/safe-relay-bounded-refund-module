@@ -39,7 +39,7 @@ import './src/tasks/local_verify'
 import './src/tasks/deploy_contracts'
 import './src/tasks/show_codesize'
 
-const primarySolidityVersion = SOLIDITY_VERSION || '0.8.14'
+const primarySolidityVersion = SOLIDITY_VERSION || '0.8.15'
 
 const deterministicDeployment =
   USE_SAFE_SINGLETON_FACTORY === 'true'
@@ -67,6 +67,7 @@ const userConfig: HardhatUserConfig = {
       {
         version: primarySolidityVersion,
         settings: {
+          viaIR: true,
           optimizer: { enabled: true, runs: 200 },
         },
       },
